@@ -1,0 +1,54 @@
+{
+  "name": "structura-mvp",
+  "displayName": "Structura - Code Graph Visualizer",
+  "description": "Visualize your codebase structure with interactive graphs",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Visualization"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "structura.showGraph",
+        "title": "Structura: Show Code Graph",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "structura.refreshGraph",
+        "title": "Structura: Refresh Graph"
+      }
+    ],
+    "configuration": {
+      "title": "Structura",
+      "properties": {
+        "structura.baseDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Base directory to analyze (leave empty for workspace root)"
+        },
+        "structura.ignorePatterns": {
+          "type": "array",
+          "default": ["node_modules", "dist", "build", ".git"],
+          "description": "Patterns to ignore when analyzing"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@typescript-eslint/parser": "^6.0.0",
+    "@babel/parser": "^7.23.0"
+  }
+}

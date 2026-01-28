@@ -40,6 +40,7 @@ Structura provides a living architectural view that updates in real-time as you 
 
 ### 1. **Semantic-First Architecture**
 
+
 Structura abstracts language-specific AST nodes into universal intents (imports, exports, definitions, calls), enabling true multi-language support and future AI integration.
 
 ```
@@ -278,35 +279,145 @@ Automatically refresh graph when files change (default: true)
 
 ## Architecture
 
-Structura follows a clean, SOLID architecture designed for extensibility:
+# High Level Architecture
+
+<img src="./assets/arch1.png" width="600" height="400" />
+
+Structura follows a **layered architecture** that separates concerns while enabling seamless language-agnostic code visualization.
+
+## Architectural Layers
+
+### **Layer 1: VS Code Extension Layer** (User Interface)
+The presentation layer that interacts directly with developers through VS Code's extension API.
+
+- **Directory Walker** - Recursively discovers source files in workspace
+- **Web View Panel** - Renders interactive graph visualization using Cytoscape.js
+- **File Watcher** - Monitors file system changes for real-time updates
+- **Command Handler** - Processes VS Code commands and user interactions
+- **Status Bar** - Shows current parsing state and quick actions
+
+### **Layer 2: Structura Engine** (Core Processing Middleware)
+The brain of the system implementing the **Chain of Responsibility** pattern through a configurable pipeline.
+
+**Middleware Pipeline:**
+1. **File Reader** → 2. **Parser Selector** → 3. **AST Generator** → 4. **Graph Builder** → 5. **Weight Calculator** → 6. **State Persister**
+
+**Key Subsystems:**
+- **Child Process Manager** - Executes parsers in isolated processes
+- **Normalization Pipeline** - Normalize → Build → Weight → Persist
+- **Graph Slice Generator** - Creates focused subgraphs for visualization
+- **Parser Registry** - Manages language-specific parser implementations
+- **Semantic Normalizer** - Maps language AST to universal semantic nodes
+- **Graph Builder** - Constructs dependency graphs from semantic nodes
+- **Graph Expander** - Extracts context-relevant subgraphs using policies
+- **State Storage** - Manages graph persistence with checkpointing
+- **Expansion Policies** - Configurable rules for graph traversal
+
+### **Layer 3: Language-Specific Parser Layer**
+Pluggable parsers that convert source code to abstract syntax trees (ASTs).
+
+**Current Support:**
+- **JavaScript Parser** - Using @babel/parser
+- **TypeScript Parser** - Using TypeScript compiler API
+- **Python Parser** - Using Python's ast module via child process
+- **[+more]** - Extensible through plugin system
+
+**Execution Model:**
+- Runs in **child processes** for isolation and crash protection
+- Can run **in-memory** for performance-critical scenarios
+- Language definitions configure semantic mapping and weights
+
+### **Layer 4: Semantic Normalizer Foundation**
+The universal abstraction layer that makes Structura truly language-agnostic.
+
+**Core Components:**
+- **Expected AST Contract** - Language-to-universal node mapping
+- **Keyword Extractor** - Identifies semantic keywords from code
+- **Graph Slice Schema** - Standardized representation for visualization
+- **Language Definitions** - Configurable mappings per language
+
+---
+
+## Low Level Architecture
+
+<img src="./assets/clean-arch.png" width="600" height="400" />
+
+Structura implements **Clean Architecture** principles with a focus on SOLID design:
+
+### **Core Domain Layer** (Business Logic)
+- **Graph Models** - `Graph`, `GraphNode`, `GraphEdge` domain entities
+- **Semantic Models** - `SemanticNode`, `SemanticIntent` value objects
+- **Expansion Policies** - Business rules for graph traversal
+- **Language Definitions** - Domain-specific language configurations
+
+### **Application Layer** (Use Cases)
+- **Processing Pipeline** - Orchestrates the parse-normalize-build-weight-persist flow
+- **Graph Operations** - Expand, find paths, detect cycles, calculate weights
+- **Parser Coordination** - Manages parser execution and result aggregation
+
+### **Interface Adapters** (Ports & Adapters)
+- **Parser Registry** - Adapter for language-specific parsers
+- **State Storage** - Adapter for persistence (filesystem, memory, cloud)
+- **Visualizer** - Adapter for rendering engines (Cytoscape.js, D3.js)
+- **Event System** - Adapter for component communication
+
+### **Infrastructure Layer** (Frameworks & Drivers)
+- **VS Code Extension API** - Platform-specific integration
+- **File System Access** - OS-level file operations
+- **Child Process Management** - Process isolation and IPC
+- **External Parser Libraries** - Babel, TypeScript compiler, etc.
+
+---
+
+## Key Architectural Patterns
+
+### **Chain of Responsibility** (Middleware Pipeline)
+Each processing step (`Handler`) can process, modify, or pass along data, enabling flexible pipeline composition.
+
+### **Ports & Adapters** (Hexagonal Architecture)
+Core business logic remains independent of external systems through defined interfaces.
+
+### **Strategy Pattern** (Language Parsers)
+Interchangeable parser implementations following the `ILanguageParser` interface.
+
+### **Observer Pattern** (Real-time Updates)
+File watchers and event listeners enable reactive architecture updates.
+
+### **Factory Pattern** (Component Creation)
+Centralized creation of parsers, visualizers, and storage adapters.
+
+---
+
+## Data Flow
 
 ```
-DirectoryWalker
-      ↓
-ParserRegistry → LanguageParser → AST
-      ↓
-SemanticNormalizer → SemanticNodes
-      ↓
-GraphBuilder → Graph
-      ↓
-WeightCalculator → Weighted Graph
-      ↓
-StateStorage ← → GraphExpander → Subgraph
-      ↓
-Visualizer (Cytoscape.js)
+VS Code Extension (UI)
+        ↓
+File Watcher + Directory Walker
+        ↓
+Parser Registry → Language Parser → AST Analysis
+        ↓
+Semantic Normalizer → Universal Semantic Nodes
+        ↓
+Graph Builder → Dependency Graph
+        ↓
+Weight Calculator → Weighted Graph
+        ↓
+State Storage ← → Graph Expander → Contextual Subgraph
+        ↓
+Visualizer (Cytoscape.js) → Interactive Visualization
 ```
 
-### Key Components
+---
 
-- **DirectoryWalker**: Discovers files in workspace
-- **ParserRegistry**: Manages language-specific parsers
-- **SemanticNormalizer**: Converts AST to universal semantic nodes
-- **GraphBuilder**: Constructs dependency graph
-- **GraphExpander**: Extracts relevant subgraphs based on context
-- **StateStorage**: Persists graph state with checkpoints
-- **Visualizer**: Renders interactive graph in webview
+## Design Principles
 
-For detailed architecture documentation, see [DESIGN.md](./DESIGN.md).
+1. **SOLID Compliance** - Each component has single responsibility, open for extension
+2. **Language Agnostic** - Core works with any language through semantic normalization
+3. **Real-time Reactive** - Updates propagate instantly as code changes
+4. **Performance First** - Smart caching, incremental updates, parallel processing
+5. **Extensible Core** - Plugin system for new languages, visualizers, and analyzers
+
 
 ---
 

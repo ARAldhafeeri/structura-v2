@@ -334,40 +334,19 @@ structura/
 ├── parsers/                          # Native language parsers
 │   │
 │   ├── javascript/                   # JavaScript/TypeScript parser
-│   │   ├── package.json              # Node.js dependencies (@babel/parser)
-│   │   ├── parser.ts                 # Main parser implementation
-│   │   └── bin/
 │   │       └── parse                 # Executable entry point
 │   │
 │   ├── python/                       # Python parser
-│   │   ├── requirements.txt          # (none needed, uses stdlib)
-│   │   ├── parser.py                 # Main parser implementation
-│   │   └── bin/
-│   │       └── parse                 # Executable: #!/usr/bin/env python3
+│   │     └── parse                 # Executable: #!/usr/bin/env python3
 │   │
-│   ├── go/                           # Go parser
-│   │   ├── go.mod                    # Go module definition
-│   │   ├── go.sum                    # Dependency lock
-│   │   ├── parser.go                 # Main parser implementation
-│   │   └── bin/
-│   │       └── parse                 # Compiled binary
+│   ├── go/                        # Go parser
+│   │    └── parse                 # Compiled binary
 │   │
 │   ├── rust/                         # Rust parser
-│   │   ├── Cargo.toml                # Rust package definition
-│   │   ├── Cargo.lock                # Dependency lock
-│   │   ├── src/
-│   │   │   └── main.rs               # Main parser implementation
-│   │   └── bin/
-│   │       └── parse                 # Compiled binary
+│   │    └── parse                 # Compiled binary
 │   │
 │   └── java/                         # Java parser
-│       ├── pom.xml                   # Maven config
-│       ├── src/
-│       │   └── main/
-│       │       └── java/
-│       │           └── Parser.java   # Main parser implementation
-│       └── bin/
-│           └── parse                 # Launch script
+│         └── parse                 # Launch script
 │
 ├── definitions/                      # Language semantic mappings
 │   ├── javascript.json

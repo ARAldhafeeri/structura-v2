@@ -188,6 +188,10 @@ Use following repository link as an example <a target="_blank" href="">stractura
 
 All language parsers in Structura must produce a **standardized JSON output** regardless of the programming language being parsed. This contract ensures the semantic layer can process any language identically.
 
+As well feel free to extend base-intents.json on both your repo and here, make sure you truly turn AST logic blocks into intents, for example, `java and javascript extends keyword` it's pointless to add 'extend' as semantic intent, you should use inheritance which is more langauge agnostic intent <a href="./base-intents.json" target="_blank">base-intents.json</a> add specific intent when they are absoutely needed for example `defer` keyword in golang for goroutines and so on.
+
+Please read the following guide on intents <a href="./intents.md" target="_blank">intents.md</a>
+
 ---
 
 ## Core Contract: ParserOutput

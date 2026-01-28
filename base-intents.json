@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "description": "Structura Base Semantic Intents - Minimal language-agnostic intent definitions that all parsers must implement",
+  "lastUpdated": "2025-01-28",
+  
+  "intents": {
+    "import": "import",
+    "export": "export",
+    "definition": "definition",
+    "call": "call"
+  }
+}

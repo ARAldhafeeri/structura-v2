@@ -180,7 +180,7 @@ structura/
 
 ### 1. ParserExecutor (TypeScript)
 
-Use following repository link as an example, please read the section below `Unified Parser Output Contract` throughly before attempting to build the parser, as well feel free to ask me any questions.
+Use following repository link as an example <a target="_blank" href="">stractura-js-ts-parser ( TBA )</a>, please read the section below `Unified Parser Output Contract` throughly before attempting to build the parser, as well feel free to ask me any questions.
 
 
 

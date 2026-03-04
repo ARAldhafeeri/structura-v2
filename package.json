@@ -3,11 +3,16 @@
   "displayName": "Structura - Code Graph Visualizer",
   "description": "Visualize your codebase structure with interactive graphs",
   "version": "0.1.0",
+  "type": "module",
   "engines": {
     "vscode": "^1.75.0"
   },
-  "categories": ["Visualization"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -31,7 +36,12 @@
         },
         "structura.ignorePatterns": {
           "type": "array",
-          "default": ["node_modules", "dist", "build", ".git"],
+          "default": [
+            "node_modules",
+            "dist",
+            "build",
+            ".git"
+          ],
           "description": "Patterns to ignore when analyzing"
         }
       }
@@ -43,12 +53,15 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
     "@types/vscode": "^1.75.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@types/node": "^25.3.3"
   },
   "dependencies": {
+    "@parcel/watcher": "^2.5.6",
+    "esrap": "^2.2.3",
+    "@babel/parser": "^7.23.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@babel/parser": "^7.23.0"
+    "oxc-parser": "^0.115.0"
   }
 }

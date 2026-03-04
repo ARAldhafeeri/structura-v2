@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2020",
+    "target": "ES2024",           
+    "module": "NodeNext",       
+    "moduleResolution": "NodeNext", 
+    "lib": ["ES2024"],          
     "outDir": "out",
-    "lib": ["ES2020"],
-    "sourceMap": true,
     "rootDir": "src",
     "strict": true,
-    "esModuleInterop": true,
+    "esModuleInterop": true,     
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true 
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", ".vscode-test"]

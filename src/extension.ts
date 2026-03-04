@@ -1,8 +1,19 @@
 import * as vscode from 'vscode';
 import { GraphGenerator } from './graphGenerator';
 import { GraphPanel } from './graphPanel';
+import { baseDir, config, ignorePatterns,  } from './config';
 
+/**
+ * Graph panel where the code graph will be displayed.
+ * The window of three main sections :
+ * 1. Top bar section where the title, stats and info buttons will be displayed.
+ * 2. Side panel of extra info about the current node.
+ * 3. Main graph section where the graph will be displayed.
+ */
 let graphPanel: GraphPanel | undefined;
+/**
+ * Status bar item for the extension.
+ */
 let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -30,9 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        const config = vscode.workspace.getConfiguration('structura');
-        const baseDir = config.get<string>('baseDirectory') || workspaceRoot;
-        const ignorePatterns = config.get<string[]>('ignorePatterns') || [];
+       
 
         // Show progress
         await vscode.window.withProgress(
@@ -42,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false,
           },
           async () => {
-            const generator = new GraphGenerator(baseDir, ignorePatterns);
+            const generator = new GraphGenerator(baseDir as string, ignorePatterns);
             const graphData = await generator.generate();
 
             if (!graphPanel) {

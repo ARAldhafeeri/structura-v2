@@ -5,7 +5,7 @@
  * Import these building blocks wherever AST walking is needed.
  */
 
-import { scopeForNode, ScopeKind } from "../uitlities/walker";
+import { scopeForNode,type  ScopeKind } from "../uitlities/walker.js";
 
 /** 
  * A map of AST node-type strings to visitor callbacks. 

@@ -1,24 +1,12 @@
-import type { SemanticNode, SemanticNodeMetadata } from "../contract";
-import { buildLineOffsets, spanToLoc } from "../uitlities/parser";
-import { walkScoped } from "./Walker";
-import { type ScopeKind } from "../uitlities/walker";
-
+import type { SemanticNode, SemanticNodeMetadata } from "../contract.js";
+import { buildLineOffsets, spanToLoc } from "../uitlities/parser.js";
+import { walkScoped } from "./Walker.js";
+import { type ScopeKind } from "../uitlities/walker.js";
+// import all visitors
 import {
-  importDeclarationVisitor,
-  exportNamedDeclarationVisitor,
-  exportDefaultDeclarationVisitor,
-  exportAllDeclarationVisitor,
-  functionDeclarationVisitor,
-  classDeclarationVisitor,
-  methodDefinitionVisitor,
-  variableDeclaratorVisitor,
-  tsTypeAliasDeclarationVisitor,
-  tsInterfaceDeclarationVisitor,
-  tsEnumDeclarationVisitor,
-  callExpressionVisitor,
-  newExpressionVisitor,
+  buildAdditionalVisitors,
   type VisitorContext,
-} from "./Visitors";
+} from "./Visitors.js";
 
 /**
  * Walks a JS/TS/JSX/TSX AST and extracts all semantic nodes
@@ -48,21 +36,9 @@ export const extractSemanticNodes = (
   // Shared context passed into every visitor factory.
   const ctx: VisitorContext = { filePath, nodes, loc, currentScope };
 
-  walkScoped(ast, {
-    ImportDeclaration:            importDeclarationVisitor(ctx),
-    ExportNamedDeclaration:       exportNamedDeclarationVisitor(ctx),
-    ExportDefaultDeclaration:     exportDefaultDeclarationVisitor(ctx),
-    ExportAllDeclaration:         exportAllDeclarationVisitor(ctx),
-    FunctionDeclaration:          functionDeclarationVisitor(ctx),
-    ClassDeclaration:             classDeclarationVisitor(ctx),
-    MethodDefinition:             methodDefinitionVisitor(ctx),
-    VariableDeclarator:           variableDeclaratorVisitor(ctx),
-    TSTypeAliasDeclaration:       tsTypeAliasDeclarationVisitor(ctx),
-    TSInterfaceDeclaration:       tsInterfaceDeclarationVisitor(ctx),
-    TSEnumDeclaration:            tsEnumDeclarationVisitor(ctx),
-    CallExpression:               callExpressionVisitor(ctx),
-    NewExpression:                newExpressionVisitor(ctx),
-  });
+  const visitors = buildAdditionalVisitors(ctx);
+
+  walkScoped(ast, visitors);
 
   return nodes;
 };

@@ -34,7 +34,7 @@ export class GraphGenerator {
 
   async generate(): Promise<GraphData> {
     this.nodes.clear();
-    this.edges.clear();
+    this.edges.length = 0;
     this.processedFiles.clear();
 
     await this.walkDirectory(this.baseDir);

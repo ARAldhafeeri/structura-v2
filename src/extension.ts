@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { GraphGenerator } from './graphGenerator';
-import { GraphPanel } from './graphPanel';
-import { baseDir, config, ignorePatterns,  } from './config';
+import { GraphGenerator } from './graphGenerator.js';
+import { GraphPanel } from './graphPanel.js';
+import { baseDir, config, ignorePatterns,  } from './config.js';
 
 /**
  * Graph panel where the code graph will be displayed.
@@ -39,9 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      try {
-        const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-       
+      try {       
 
         // Show progress
         await vscode.window.withProgress(
@@ -58,6 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
               graphPanel = new GraphPanel(context.extensionUri);
             }
             graphPanel.show(graphData);
+          
           }
         );
       } catch (error) {
@@ -70,19 +69,19 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register refresh command
   const refreshCommand = vscode.commands.registerCommand(
-    'structura.refreshGraph',
-    async () => {
-      if (graphPanel) {
-        vscode.commands.executeCommand('structura.showGraph');
-      }
+  'structura.refreshGraph',
+  async () => {
+    if (graphPanel) {
+      vscode.commands.executeCommand('structura.showGraph');
+    } else {
+      vscode.window.showInformationMessage('No graph open to refresh.');
     }
-  );
+  }
+);
 
   context.subscriptions.push(showGraphCommand, refreshCommand);
 }
 
 export function deactivate() {
-  if (statusBarItem) {
-    statusBarItem.dispose();
-  }
+
 }

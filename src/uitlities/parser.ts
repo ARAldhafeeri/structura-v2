@@ -1,7 +1,7 @@
 import type {
   Parameter,
   SourceLocation,
-} from "../contract";
+} from "../contract.js";
 
 
 /** Build the stable node id: filePath:line:column:nodeType */

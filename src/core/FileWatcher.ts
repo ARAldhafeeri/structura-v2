@@ -4,7 +4,7 @@ import watcher, { type AsyncSubscription, type Event , } from "@parcel/watcher";
 type Watcher = typeof watcher;
 
 // File subscription created upon subscribing  a file to be watched.
-interface FileSubscription {
+export interface FileSubscription {
     id: string;
     filePath: string;
     subscription: AsyncSubscription;
@@ -86,7 +86,7 @@ export class SubscriptionManager {
  * This allows for a flexible and extensible way to handle file change events, 
  * as different handlers can be registered to perform various actions based on the events received.
  */
-type FileWatcherHandler = (events: Event[], err: Error | null) => void;
+export type FileWatcherHandler = (events: Event[], err: Error | null) => void;
 
 /**
  * File Watcher Handlers Registry,

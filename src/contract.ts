@@ -1,4 +1,4 @@
-import { WEIGHTS } from "./graph/weights";
+import { WEIGHTS } from "./graph/weights.js";
 
 export interface SourcePosition {
   line: number;

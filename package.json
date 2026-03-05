@@ -1,7 +1,11 @@
 {
   "name": "structura-mvp",
-  "displayName": "Structura - Code Graph Visualizer",
-  "description": "Visualize your codebase structure with interactive graphs",
+  "displayName": "Structura - Code Graph Navigator",
+  "description": "Turn your codebase into sci-fi feel code exploration graph. Navigate your code like never before. With keyboard-shortcuts or with the mice",
+  "publisher": "AhmedRakan",
+  "author": {
+    "name": "Ahmed Rakan"
+  },
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -10,10 +14,9 @@
   "categories": [
     "Visualization"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./out/extension.js",
+  "activationEvents": [],
+  "pricing": "Free",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -48,20 +51,26 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && vscode-test",
+    "package": "npm run build && vsce package"
   },
   "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
-    "typescript": "^5.0.0",
-    "@types/node": "^25.3.3"
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "sinon": "^21.0.2",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@parcel/watcher": "^2.5.6",
-    "esrap": "^2.2.3",
     "@babel/parser": "^7.23.0",
+    "@parcel/watcher": "^2.5.6",
     "@typescript-eslint/parser": "^6.0.0",
+    "esrap": "^2.2.3",
     "oxc-parser": "^0.115.0"
   }
 }

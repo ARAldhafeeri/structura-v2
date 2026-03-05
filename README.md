@@ -425,8 +425,15 @@ Visualizer (Cytoscape.js) → Interactive Visualization
 
 ```
 structura/
-├── src/                              # TypeScript extension core
-│   ├── extension.ts                  # VS Code entry point
+├── src/                         
+│   ├── core/
+│   │   ├── Directory.ts
+│   │   ├── FileWatcher.ts 
+│   │   ├── TSParser.ts
+│   │   ├── Visitors.ts 
+│   │   ├── Walker.ts 
+│   ├── extension.ts   
+│   ├── utilities # source code utilties
 │   ├── parsers/
 │   │   ├── executor.ts               # ParserExecutor (spawns child processes)
 │   │   ├── registry.ts               # ParserRegistry (manages parsers)
@@ -466,16 +473,10 @@ structura/
 │   ├── rust.json
 │   └── java.json
 │
-├── tests/
-│   ├── fixtures/                     # Test files in various languages
-│   │   ├── javascript/
-│   │   ├── python/
-│   │   └── go/
-│   └── parsers/                      # Parser integration tests
-│       ├── javascript.test.ts
-│       ├── python.test.ts
-│       └── go.test.ts
-│
+├── test
+│   ├── extension.test.ts
+│   ├── unit # unit tests 
+│   ├── e2e # integration tests
 ├── scripts/
 │   ├── build-parsers.sh              # Build all parsers
 │   ├── test-parsers.sh               # Test all parsers
@@ -519,13 +520,13 @@ code .
 
 ```bash
 # Compile TypeScript
-npm run compile
+npm run build
 
 # Watch for changes
 npm run watch
 
 # Run tests
-npm test
+npm run test
 
 # Package extension
 npm run package

@@ -4,14 +4,13 @@
     "module": "NodeNext",       
     "moduleResolution": "NodeNext", 
     "lib": ["ES2024"],          
-    "outDir": "out",
-    "rootDir": "src",
+    "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,     
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true 
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", ".vscode-test"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", ".vscode-test", "dist"]
 }

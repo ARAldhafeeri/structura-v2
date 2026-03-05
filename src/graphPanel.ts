@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { GraphData } from './graphGenerator';
+import { type  GraphData } from './graphGenerator.js';
 
 export class GraphPanel {
   private panel: vscode.WebviewPanel | undefined;

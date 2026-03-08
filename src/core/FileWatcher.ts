@@ -178,7 +178,7 @@ export class GraphFileWatcher {
                 id,
                 filePath: file,
                 subscription,
-                unsubscribeCaller: subscription.unsubscribe
+                unsubscribeCaller: subscription.unsubscribe.bind(subscription)
             });
             
             return id;
@@ -194,7 +194,7 @@ export class GraphFileWatcher {
     async unsubscribeOne(id: string): Promise<void> {
         const subscription = this.subscriptionManager.remove(id);
         if (subscription) {
-            await subscription.subscription.unsubscribe();
+            await subscription.unsubscribeCaller();
         }
     }
     

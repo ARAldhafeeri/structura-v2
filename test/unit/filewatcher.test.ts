@@ -125,7 +125,7 @@ suite('Graph File Watcher Tests', () => {
 
   suite('HandlersRegistry Tests', () => {
     let registry: HandlersRegisry;
-    const mockHandler: FileWatcherHandler = (events, err) => {};
+    const mockHandler: FileWatcherHandler = (err, events) => {};
 
     setup(() => {
       registry = new HandlersRegisry();
@@ -211,9 +211,11 @@ suite('Graph File Watcher Tests', () => {
     setup(() => {
       // Create fresh mocks for each test
       mockWatcher = {
-        subscribe: sinon.stub().resolves({
-          unsubscribe: sinon.stub().resolves()
-        })
+        subscribe: sinon.stub().callsFake(() => {
+      return Promise.resolve({
+        unsubscribe: sinon.stub().resolves()
+      });
+  })
       };
       
       handlerRegistry = new HandlersRegisry();
@@ -264,10 +266,10 @@ suite('Graph File Watcher Tests', () => {
       }];
       const mockError = null;
       
-      callback(mockEvents, mockError);
+      callback(mockError, mockEvents);
       
-      assert.ok(handler1.calledOnceWith(mockEvents, mockError));
-      assert.ok(handler2.calledOnceWith(mockEvents, mockError));
+      assert.ok(handler1.calledOnceWith(mockError, mockEvents));
+      assert.ok(handler2.calledOnceWith(mockError, mockEvents));
     });
 
     test('should unsubscribe from a single file', async () => {
@@ -294,6 +296,11 @@ suite('Graph File Watcher Tests', () => {
         
         await watcher.unsubscribeMany(ids);
         
+        // check unsubscribe is being called
+        for (const call of mockWatcher.subscribe.getCalls()) {
+          const sub = await call.returnValue;
+          assert.ok(sub.unsubscribe.calledOnce, `unsubscribe not called for ${call.args[0]}`);
+        }
 
       assert.strictEqual(watcher['subscriptionManager'].findAll().length, 0);
         
@@ -306,6 +313,11 @@ suite('Graph File Watcher Tests', () => {
       await watcher.watchMany(files);
             
       await watcher.flushAllSubscriptions();
+
+      for (const call of mockWatcher.subscribe.getCalls()) {
+        const sub = await call.returnValue;
+        assert.ok(sub.unsubscribe.calledOnce, `unsubscribe not called for ${call.args[0]}`);
+      }
       
       // Subscription manager should be empty
       assert.strictEqual(watcher['subscriptionManager'].findAll().length, 0);
@@ -388,9 +400,11 @@ suite('Graph File Watcher Tests', () => {
   suite('Integration Tests', () => {
     test('should handle complete watch lifecycle', async () => {
       const mockWatcher = {
-        subscribe: sinon.stub().resolves({
-          unsubscribe: sinon.stub().resolves()
-        })
+         subscribe: sinon.stub().callsFake(() => {
+    return Promise.resolve({
+      unsubscribe: sinon.stub().resolves()
+    });
+  })
       };
       
       const registry = new HandlersRegisry();

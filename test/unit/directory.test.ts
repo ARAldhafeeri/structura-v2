@@ -23,7 +23,6 @@ suite("Tests related to fetching directory trees", () => {
 
         const testDirectory = path.join(__dirname, "..");
 
-        console.log("testDirectory",testDirectory);
 
         const tree = await getDirectoryTree(testDirectory, 1);
     
@@ -33,8 +32,6 @@ suite("Tests related to fetching directory trees", () => {
     test("Directory tree should be fetched correctly unbounded search", async () => {
         // test directory is src, depth is 0, so all children should be included
         const testDirectory = path.join(__dirname, "..");
-
-        console.log("testDirectory",testDirectory);
 
         const tree = await getDirectoryTree(testDirectory, 0);
 

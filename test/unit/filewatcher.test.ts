@@ -10,6 +10,7 @@ import {
   type FileSubscription,
   type FileWatcherHandler
 } from "../../src/core/FileWatcher.js"
+import { register } from 'module';
 
 
 suite('Graph File Watcher Tests', () => {
@@ -272,12 +273,11 @@ suite('Graph File Watcher Tests', () => {
       handlerRegistry.add(mockHandler);
       
       const [id] = await watcher.watchMany(['/test/file1.js']);
-      
-      const subscription = mockWatcher.subscribe.firstCall.returnValue;
-      
+            
+      assert.ok(watcher['subscriptionManager'].get(id), "Subscription should exist in manager after watching");
       await watcher.unsubscribeOne(id);
       
-      assert.ok(subscription.unsubscribe.calledOnce);
+      assert.ok(watcher['subscriptionManager'].findAll().length === 0);
     });
 
     test('should handle unsubscribe from non-existent subscription', async () => {
@@ -286,20 +286,21 @@ suite('Graph File Watcher Tests', () => {
     });
 
     test('should unsubscribe from multiple files with concurrency control', async () => {
-      handlerRegistry.add(mockHandler);
-      
-      const files = ['/test/1.js', '/test/2.js', '/test/3.js', '/test/4.js', '/test/5.js'];
-      const ids = await watcher.watchMany(files);
-      
-      // Get all subscription objects
-      const subscriptions = ids.map(() => mockWatcher.subscribe.firstCall.returnValue);
-      
-      await watcher.unsubscribeMany(ids);
-      
-      // All subscriptions should have been unsubscribed
-      subscriptions.forEach(sub => {
-        assert.ok(sub.unsubscribe.calledOnce);
-      });
+        handlerRegistry.add(mockHandler);
+        
+        const files = ['/test/1.js', '/test/2.js', '/test/3.js', '/test/4.js', '/test/5.js'];
+        const ids = await watcher.watchMany(files);
+        
+        await watcher.unsubscribeMany(ids);
+        
+        // Verify each subscribe call happened
+        assert.strictEqual(mockWatcher.subscribe.callCount, files.length);
+        
+        // Get all subscription objects and verify their unsubscribe methods were called
+        for (let i = 0; i < files.length; i++) {
+            const subscription = await mockWatcher.subscribe.getCall(i).returnValue;
+            assert.ok(subscription.unsubscribe.calledOnce, `Subscription ${i} should be unsubscribed once`);
+        }
     });
 
     test('should flush all subscriptions', async () => {

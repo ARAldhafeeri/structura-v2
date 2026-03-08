@@ -86,7 +86,7 @@ export class SubscriptionManager {
  * This allows for a flexible and extensible way to handle file change events, 
  * as different handlers can be registered to perform various actions based on the events received.
  */
-export type FileWatcherHandler = (events: Event[], err: Error | null) => void;
+export type FileWatcherHandler = ( err: Error | null, events: Event[]) => void;
 
 /**
  * File Watcher Handlers Registry,
@@ -169,7 +169,7 @@ export class GraphFileWatcher {
         const tasks = files.map(async (file) => {
             const subscription = await this.watcher.subscribe(file, (err, events) => {
                 for (const handler of this.handlerRegistry.findAll()){
-                    handler(events, err)
+                    handler(err, events)
                 }
             });
             const id = crypto.randomUUID();

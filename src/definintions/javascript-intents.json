@@ -1,0 +1,1114 @@
+{
+  "version": "1.0.0",
+  "name": "structura-parser-javascript",
+  "extends": "base-intents.json",
+  "description": "Intent mapping and validation rules for the JavaScript/TypeScript/JSX/TSX parser. Covers the full ESTree/Babel/TypeScript compiler AST surface. All intents resolve against base-intents.json first; entries in 'extended' are additive.",
+
+  "languages": ["javascript", "typescript", "javascriptreact", "typescriptreact"],
+  "extensions": [".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".d.ts"],
+
+  "astNodeMap": {
+
+    "imports": {
+      "description": "All forms of bringing external code into scope. Always maps to base intent 'import'.",
+      "intent": "import",
+      "nodes": {
+
+        "ImportDeclaration": {
+          "description": "Static ES module import.",
+          "requiresTarget": true,
+          "targetField": "source.value",
+          "weight": 0.9,
+          "forms": [
+            "import defaultExport from 'module'",
+            "import { named } from 'module'",
+            "import { named as alias } from 'module'",
+            "import * as ns from 'module'",
+            "import 'module'"
+          ],
+          "metadata": {
+            "importKind": "'value' | 'type'",
+            "isDefault": "boolean — true when importing the default export",
+            "isNamespace": "boolean — true for 'import * as ns'",
+            "isNamed": "boolean — true for named specifiers",
+            "isSideEffect": "boolean — true for bare 'import \"module\"'",
+            "specifiers": "string[] — all imported names"
+          }
+        },
+
+        "ImportExpression": {
+          "description": "Dynamic import() call. Async — target may be a runtime expression.",
+          "requiresTarget": true,
+          "targetField": "source (resolve statically if string literal, else use raw source text)",
+          "weight": 0.85,
+          "forms": [
+            "import('module')",
+            "import(`./routes/${name}`)",
+            "const mod = await import('module')"
+          ],
+          "metadata": {
+            "isDynamic": true,
+            "isStaticallyResolvable": "boolean — false when target is a template expression"
+          }
+        },
+
+        "CallExpression[require]": {
+          "description": "CommonJS require() call. Treat as import even though syntactically a call.",
+          "requiresTarget": true,
+          "targetField": "arguments[0].value",
+          "weight": 0.9,
+          "forms": [
+            "require('module')",
+            "const x = require('module')",
+            "const { x } = require('module')"
+          ],
+          "metadata": {
+            "importKind": "'value'",
+            "isCJS": true,
+            "isDestructured": "boolean"
+          }
+        },
+
+        "TSImportEqualsDeclaration": {
+          "description": "TypeScript legacy import = require() or import = namespace syntax.",
+          "requiresTarget": true,
+          "targetField": "moduleReference",
+          "weight": 0.9,
+          "forms": [
+            "import Foo = require('foo')",
+            "import Foo = SomeNamespace.Foo"
+          ],
+          "metadata": {
+            "importKind": "'value' | 'type'",
+            "isExternalModuleReference": "boolean"
+          }
+        }
+
+      }
+    },
+
+    "exports": {
+      "description": "All forms of exposing symbols for external consumption. Maps to base intent 'export'.",
+      "intent": "export",
+      "nodes": {
+
+        "ExportNamedDeclaration": {
+          "description": "Named export of a declaration or re-export of identifiers.",
+          "requiresTarget": false,
+          "weight": 0.8,
+          "forms": [
+            "export const x = 1",
+            "export function foo() {}",
+            "export class Foo {}",
+            "export { x, y }",
+            "export { x as default }",
+            "export { x } from 'module'"
+          ],
+          "metadata": {
+            "exportKind": "'value' | 'type'",
+            "isReExport": "boolean — true when 'from' source is present",
+            "source": "string | null — re-export source module",
+            "specifiers": "string[]"
+          }
+        },
+
+        "ExportDefaultDeclaration": {
+          "description": "Default export of a value, function, or class.",
+          "requiresTarget": false,
+          "weight": 0.85,
+          "forms": [
+            "export default function foo() {}",
+            "export default class Foo {}",
+            "export default 42",
+            "export default { key: value }"
+          ],
+          "metadata": {
+            "exportKind": "'value'",
+            "isDefault": true,
+            "declarationType": "'FunctionDeclaration' | 'ClassDeclaration' | 'Expression'"
+          }
+        },
+
+        "ExportAllDeclaration": {
+          "description": "Re-export everything from another module.",
+          "requiresTarget": true,
+          "targetField": "source.value",
+          "weight": 0.8,
+          "forms": [
+            "export * from 'module'",
+            "export * as ns from 'module'"
+          ],
+          "metadata": {
+            "exportKind": "'value' | 'type'",
+            "namespaceAlias": "string | null — set when 'as ns' form is used"
+          }
+        },
+
+        "TSExportAssignment": {
+          "description": "TypeScript CommonJS-style module.exports assignment.",
+          "requiresTarget": false,
+          "weight": 0.8,
+          "forms": [
+            "export = MyClass",
+            "export = { foo, bar }"
+          ],
+          "metadata": {
+            "isCJS": true
+          }
+        }
+
+      }
+    },
+
+    "definitions": {
+      "description": "Declarations of named, reusable code units. Maps to 'definition.*' sub-intents.",
+
+      "functions": {
+        "intent": "definition.function",
+        "nodes": {
+
+          "FunctionDeclaration": {
+            "description": "Named function declaration at statement level.",
+            "weight": 0.7,
+            "forms": [
+              "function foo(a, b) {}",
+              "async function foo() {}",
+              "function* generator() {}"
+            ],
+            "metadata": {
+              "isAsync": "boolean",
+              "isGenerator": "boolean",
+              "parameters": "Parameter[]",
+              "returnType": "string | null — TypeScript annotation",
+              "typeParameters": "string[] | null — TypeScript generics",
+              "scope": "'module' | 'function' | 'block'"
+            }
+          },
+
+          "FunctionExpression": {
+            "description": "Named or anonymous function assigned to a variable or used as a value. Emit only when assigned to a named binding.",
+            "weight": 0.65,
+            "forms": [
+              "const foo = function() {}",
+              "const foo = function namedFn() {}",
+              "const foo = async function() {}"
+            ],
+            "metadata": {
+              "isAsync": "boolean",
+              "isGenerator": "boolean",
+              "parameters": "Parameter[]",
+              "returnType": "string | null",
+              "inferredName": "string | null — name of the binding if assigned"
+            }
+          },
+
+          "ArrowFunctionExpression": {
+            "description": "Arrow function assigned to a named binding. Use 'definition.lambda' when passed inline as an argument.",
+            "weight": 0.65,
+            "forms": [
+              "const foo = () => {}",
+              "const foo = async (x) => x * 2",
+              "const foo = (x): number => x"
+            ],
+            "metadata": {
+              "isAsync": "boolean",
+              "isExpression": "boolean — true when body is an expression, not a block",
+              "parameters": "Parameter[]",
+              "returnType": "string | null",
+              "inferredName": "string | null"
+            }
+          },
+
+          "MethodDefinition": {
+            "description": "Method, getter, setter, or constructor inside a class body.",
+            "weight": 0.7,
+            "forms": [
+              "class Foo { bar() {} }",
+              "class Foo { async fetch() {} }",
+              "class Foo { get value() {} }",
+              "class Foo { set value(v) {} }",
+              "class Foo { constructor() {} }",
+              "class Foo { static create() {} }"
+            ],
+            "metadata": {
+              "kind": "'constructor' | 'method' | 'get' | 'set'",
+              "isAsync": "boolean",
+              "isGenerator": "boolean",
+              "isStatic": "boolean",
+              "visibility": "'public' | 'private' | 'protected' — TypeScript only",
+              "isAbstract": "boolean — TypeScript only",
+              "isOverride": "boolean — TypeScript only",
+              "parameters": "Parameter[]",
+              "returnType": "string | null",
+              "scope": "'class'"
+            }
+          },
+
+          "TSMethodSignature": {
+            "description": "Method signature inside a TypeScript interface or object type.",
+            "weight": 0.6,
+            "forms": [
+              "interface Foo { bar(x: string): void }",
+              "type Foo = { bar(x: string): void }"
+            ],
+            "metadata": {
+              "isOptional": "boolean",
+              "isReadonly": "boolean",
+              "parameters": "Parameter[]",
+              "returnType": "string"
+            }
+          }
+
+        }
+      },
+
+      "classes": {
+        "intent": "definition.class",
+        "nodes": {
+
+          "ClassDeclaration": {
+            "description": "Named class declaration at statement level.",
+            "weight": 0.8,
+            "forms": [
+              "class Foo {}",
+              "abstract class Foo {}",
+              "class Foo<T> {}"
+            ],
+            "metadata": {
+              "isAbstract": "boolean — TypeScript only",
+              "typeParameters": "string[] | null",
+              "decorators": "string[]",
+              "scope": "'module' | 'function' | 'block'"
+            }
+          },
+
+          "ClassExpression": {
+            "description": "Class expression assigned to a named binding.",
+            "weight": 0.75,
+            "forms": [
+              "const Foo = class {}",
+              "const Foo = class NamedClass {}"
+            ],
+            "metadata": {
+              "inferredName": "string | null",
+              "typeParameters": "string[] | null",
+              "decorators": "string[]"
+            }
+          },
+
+          "TSInterfaceDeclaration": {
+            "description": "TypeScript interface declaration.",
+            "weight": 0.75,
+            "forms": [
+              "interface Foo { bar: string }",
+              "interface Foo<T> extends Base<T> {}"
+            ],
+            "metadata": {
+              "typeParameters": "string[] | null",
+              "extends": "string[] — base interfaces"
+            }
+          },
+
+          "TSEnumDeclaration": {
+            "description": "TypeScript enum declaration. Maps to 'definition.enum', not 'definition.class', but listed here because TSEnumDeclaration is a class-level construct in the AST.",
+            "intent": "definition.enum",
+            "weight": 0.65,
+            "forms": [
+              "enum Direction { Up, Down }",
+              "const enum Color { Red = 1, Green }",
+              "enum Status { Active = 'ACTIVE' }"
+            ],
+            "metadata": {
+              "isConst": "boolean",
+              "members": "string[]"
+            }
+          }
+
+        }
+      },
+
+      "types": {
+        "intent": "definition.type",
+        "nodes": {
+
+          "TSTypeAliasDeclaration": {
+            "description": "TypeScript type alias declaration.",
+            "weight": 0.6,
+            "forms": [
+              "type UserId = string",
+              "type Result<T, E> = { ok: T } | { err: E }",
+              "type Handler = (req: Request) => Response"
+            ],
+            "metadata": {
+              "typeParameters": "string[] | null",
+              "isUnion": "boolean",
+              "isIntersection": "boolean",
+              "isMapped": "boolean",
+              "isConditional": "boolean"
+            }
+          },
+
+          "TSModuleDeclaration": {
+            "description": "TypeScript namespace or module declaration. Maps to 'definition.namespace'.",
+            "intent": "definition.namespace",
+            "weight": 0.7,
+            "forms": [
+              "namespace Auth { export interface User {} }",
+              "module 'some-module' { export function foo(): void }",
+              "declare module 'lodash' { ... }"
+            ],
+            "metadata": {
+              "isGlobal": "boolean",
+              "isDeclare": "boolean",
+              "isAmbient": "boolean"
+            }
+          },
+
+          "TSAbstractMethodDefinition": {
+            "description": "Abstract method signature inside an abstract class. Emits both 'definition.function' (for the method) and is noted in metadata as abstract.",
+            "intent": "definition.function",
+            "weight": 0.65,
+            "forms": [
+              "abstract class Foo { abstract bar(): void }"
+            ],
+            "metadata": {
+              "isAbstract": true,
+              "returnType": "string"
+            }
+          }
+
+        }
+      },
+
+      "variables": {
+        "intent": "definition.variable",
+        "nodes": {
+
+          "VariableDeclaration": {
+            "description": "Variable declaration (const, let, var). Emit one node per declarator when multiple are declared on one line.",
+            "weight": 0.5,
+            "forms": [
+              "const x = 1",
+              "let y: string",
+              "var z = foo()",
+              "const [a, b] = arr",
+              "const { x, y } = obj"
+            ],
+            "metadata": {
+              "kind": "'const' | 'let' | 'var'",
+              "isDestructured": "boolean",
+              "destructureKind": "'array' | 'object' | null",
+              "typeAnnotation": "string | null",
+              "scope": "'module' | 'function' | 'block'"
+            }
+          },
+
+          "TSPropertySignature": {
+            "description": "Property signature inside a TypeScript interface or object type.",
+            "weight": 0.5,
+            "forms": [
+              "interface Foo { bar: string }",
+              "interface Foo { bar?: number }"
+            ],
+            "metadata": {
+              "isOptional": "boolean",
+              "isReadonly": "boolean",
+              "typeAnnotation": "string"
+            }
+          },
+
+          "ClassProperty": {
+            "description": "Class field (public, private, protected, static). TypeScript class properties.",
+            "weight": 0.5,
+            "forms": [
+              "class Foo { bar = 1 }",
+              "class Foo { private bar: string }",
+              "class Foo { static readonly MAX = 100 }",
+              "class Foo { #privateField = 0 }"
+            ],
+            "metadata": {
+              "isStatic": "boolean",
+              "isReadonly": "boolean",
+              "visibility": "'public' | 'private' | 'protected'",
+              "isPrivateName": "boolean — true for #field syntax",
+              "typeAnnotation": "string | null",
+              "isAbstract": "boolean",
+              "decorators": "string[]"
+            }
+          }
+
+        }
+      },
+
+      "lambdas": {
+        "intent": "definition.lambda",
+        "description": "Anonymous functions passed directly as arguments or returned inline — not assigned to a named binding. Named bindings should use 'definition.function' instead.",
+        "nodes": {
+
+          "ArrowFunctionExpression[inline]": {
+            "description": "Arrow function used as a callback or argument, not assigned to a name.",
+            "weight": 0.45,
+            "forms": [
+              "arr.map(x => x * 2)",
+              "setTimeout(() => { ... }, 1000)",
+              "Promise.resolve().then(result => result.data)"
+            ],
+            "metadata": {
+              "isAsync": "boolean",
+              "parentCallTarget": "string | null — name of the call this lambda is passed to"
+            }
+          },
+
+          "FunctionExpression[inline]": {
+            "description": "Function expression passed directly as a callback.",
+            "weight": 0.45,
+            "forms": [
+              "arr.reduce(function(acc, x) { return acc + x }, 0)",
+              "events.on('click', function handler(e) { ... })"
+            ],
+            "metadata": {
+              "isAsync": "boolean",
+              "isGenerator": "boolean",
+              "parentCallTarget": "string | null"
+            }
+          }
+
+        }
+      }
+
+    },
+
+    "calls": {
+      "description": "All forms of invoking a function, method, or constructor. Maps to base intent 'call'.",
+      "intent": "call",
+      "nodes": {
+
+        "CallExpression": {
+          "description": "Standard function or method call.",
+          "requiresTarget": true,
+          "targetField": "callee (resolve to fully qualified name where possible)",
+          "weight": 0.3,
+          "forms": [
+            "foo()",
+            "obj.method(arg)",
+            "obj?.method(arg)",
+            "foo<T>(arg)",
+            "super.method()"
+          ],
+          "metadata": {
+            "callee": "string — fully qualified callee path e.g. 'axios.get'",
+            "isOptionalChain": "boolean",
+            "isAwait": "boolean — true when wrapped in AwaitExpression",
+            "isChained": "boolean — callee is itself a CallExpression result",
+            "typeArguments": "string[] | null — TypeScript generic type args",
+            "scope": "'module' | 'class' | 'function' | 'block'"
+          }
+        },
+
+        "NewExpression": {
+          "description": "Constructor invocation.",
+          "requiresTarget": true,
+          "targetField": "callee",
+          "weight": 0.4,
+          "forms": [
+            "new Foo()",
+            "new Map<string, number>()",
+            "new (getDynamicClass())()"
+          ],
+          "metadata": {
+            "callee": "string",
+            "typeArguments": "string[] | null",
+            "isAwait": "boolean"
+          }
+        },
+
+        "TaggedTemplateExpression": {
+          "description": "Tagged template literal — the tag function is being called.",
+          "requiresTarget": true,
+          "targetField": "tag",
+          "weight": 0.35,
+          "forms": [
+            "html`<div>${content}</div>`",
+            "css`color: red`",
+            "gql`query { user { id } }`",
+            "sql`SELECT * FROM users WHERE id = ${id}`"
+          ],
+          "metadata": {
+            "tag": "string — tag function name",
+            "isTemplateLiteral": true
+          }
+        },
+
+        "CallExpression[super]": {
+          "description": "super() constructor call in a derived class constructor.",
+          "requiresTarget": true,
+          "targetField": "superClass (resolved from class declaration)",
+          "weight": 0.4,
+          "forms": [
+            "constructor() { super() }",
+            "constructor() { super(arg1, arg2) }"
+          ],
+          "metadata": {
+            "isSuper": true,
+            "superClass": "string | null"
+          }
+        }
+
+      }
+    },
+
+    "inheritance_and_implementation": {
+      "description": "Class extension and interface implementation relationships.",
+
+      "inheritance_nodes": {
+        "intent": "inheritance",
+        "nodes": {
+
+          "ClassDeclaration[extends]": {
+            "description": "Class inheriting from a superclass. Emit alongside the 'definition.class' node for the same class.",
+            "requiresTarget": true,
+            "targetField": "superClass",
+            "weight": 0.75,
+            "forms": [
+              "class Dog extends Animal {}",
+              "class MyComponent extends React.Component {}",
+              "class AdminUser extends User {}"
+            ],
+            "metadata": {
+              "superClass": "string",
+              "typeParameters": "string[] | null — generic arguments passed to superclass"
+            }
+          }
+
+        }
+      },
+
+      "implementation_nodes": {
+        "intent": "implementation",
+        "nodes": {
+
+          "TSClassImplements": {
+            "description": "TypeScript 'implements' clause on a class. Emit one node per implemented interface.",
+            "requiresTarget": true,
+            "targetField": "expression",
+            "weight": 0.75,
+            "forms": [
+              "class Foo implements IBar {}",
+              "class Foo implements IBar, IBaz {}",
+              "class Foo<T> implements IFoo<T> {}"
+            ],
+            "metadata": {
+              "typeParameters": "string[] | null"
+            }
+          },
+
+          "TSInterfaceDeclaration[extends]": {
+            "description": "TypeScript interface extending another interface.",
+            "requiresTarget": true,
+            "targetField": "extends[*].expression",
+            "weight": 0.7,
+            "forms": [
+              "interface Foo extends Bar {}",
+              "interface Foo extends Bar, Baz {}"
+            ],
+            "metadata": {
+              "typeParameters": "string[] | null"
+            }
+          }
+
+        }
+      }
+
+    },
+
+    "decorators": {
+      "description": "TypeScript/JavaScript decorators applied to classes, methods, properties, or parameters. Maps to base intent 'decoration'.",
+      "intent": "decoration",
+      "nodes": {
+
+        "Decorator[class]": {
+          "description": "Decorator applied to a class declaration.",
+          "requiresTarget": true,
+          "targetField": "expression (decorator factory or identifier)",
+          "weight": 0.5,
+          "forms": [
+            "@Injectable()",
+            "@Component({ selector: 'app-root' })",
+            "@Entity('users')",
+            "@Controller('/api')"
+          ],
+          "metadata": {
+            "decoratorName": "string",
+            "isFactory": "boolean — true when called as @Foo(args)",
+            "arguments": "any[] | null",
+            "appliedTo": "'class'"
+          }
+        },
+
+        "Decorator[method]": {
+          "description": "Decorator applied to a class method.",
+          "requiresTarget": true,
+          "targetField": "expression",
+          "weight": 0.45,
+          "forms": [
+            "@Get('/users')",
+            "@UseGuards(AuthGuard)",
+            "@Memoize()"
+          ],
+          "metadata": {
+            "decoratorName": "string",
+            "isFactory": "boolean",
+            "arguments": "any[] | null",
+            "appliedTo": "'method'"
+          }
+        },
+
+        "Decorator[property]": {
+          "description": "Decorator applied to a class property or field.",
+          "requiresTarget": true,
+          "targetField": "expression",
+          "weight": 0.4,
+          "forms": [
+            "@Column()",
+            "@IsEmail()",
+            "@Inject(TOKEN)"
+          ],
+          "metadata": {
+            "decoratorName": "string",
+            "isFactory": "boolean",
+            "arguments": "any[] | null",
+            "appliedTo": "'property'"
+          }
+        },
+
+        "Decorator[parameter]": {
+          "description": "Decorator applied to a function or constructor parameter.",
+          "requiresTarget": true,
+          "targetField": "expression",
+          "weight": 0.4,
+          "forms": [
+            "constructor(@Inject(TOKEN) private service: Service)",
+            "handler(@Body() dto: CreateUserDto)"
+          ],
+          "metadata": {
+            "decoratorName": "string",
+            "isFactory": "boolean",
+            "arguments": "any[] | null",
+            "appliedTo": "'parameter'",
+            "parameterIndex": "number"
+          }
+        }
+
+      }
+    },
+
+    "jsx": {
+      "description": "JSX/TSX-specific nodes. JSX elements are treated as calls to their component or host element. Only emit for .jsx and .tsx files (or .js/.ts files with JSX pragma).",
+
+      "jsx_element": {
+        "intent": "call",
+        "nodes": {
+
+          "JSXElement[component]": {
+            "description": "JSX element whose tag is a component (starts with uppercase or is a member expression). Emit as a 'call' because rendering a component is invoking it.",
+            "requiresTarget": true,
+            "targetField": "openingElement.name",
+            "weight": 0.35,
+            "forms": [
+              "<MyComponent />",
+              "<MyComponent prop={value} />",
+              "<Namespace.Component />",
+              "<Context.Provider value={ctx}>"
+            ],
+            "metadata": {
+              "isComponent": true,
+              "isIntrinsic": false,
+              "isSelfClosing": "boolean",
+              "props": "string[] — prop names passed to the component"
+            }
+          },
+
+          "JSXElement[intrinsic]": {
+            "description": "JSX element whose tag is a lowercase HTML/SVG intrinsic element. Lower weight — these are layout noise, not semantic signals.",
+            "requiresTarget": true,
+            "targetField": "openingElement.name",
+            "weight": 0.15,
+            "forms": [
+              "<div>",
+              "<span className='foo'>",
+              "<input type='text' />"
+            ],
+            "metadata": {
+              "isComponent": false,
+              "isIntrinsic": true,
+              "isSelfClosing": "boolean"
+            }
+          },
+
+          "JSXFragment": {
+            "description": "JSX fragment shorthand. Not a component call — emit as a structural note only if needed.",
+            "requiresTarget": false,
+            "weight": 0.1,
+            "forms": [
+              "<></>",
+              "<React.Fragment></React.Fragment>"
+            ],
+            "metadata": {
+              "isFragment": true
+            }
+          }
+
+        }
+      },
+
+      "jsx_definitions": {
+        "description": "JSX-specific definition patterns.",
+        "nodes": {
+
+          "FunctionDeclaration[jsxReturn]": {
+            "description": "Function or arrow function that returns JSX — the functional component pattern. Emits as 'definition.function' with isComponent flag.",
+            "intent": "definition.function",
+            "weight": 0.75,
+            "forms": [
+              "function MyComponent(props) { return <div /> }",
+              "const MyComponent = (props) => <div />"
+            ],
+            "metadata": {
+              "isComponent": true,
+              "hasJSXReturn": true
+            }
+          }
+
+        }
+      }
+
+    },
+
+    "typescript_specific": {
+      "description": "TypeScript constructs that have no direct JS equivalent. Most map to existing base intents.",
+
+      "type_references": {
+        "intent": "reference",
+        "nodes": {
+
+          "TSTypeReference": {
+            "description": "Usage of a named type as an annotation. Emits as 'reference' — it is a read-only use of a type symbol.",
+            "requiresTarget": true,
+            "targetField": "typeName",
+            "weight": 0.2,
+            "forms": [
+              "const x: MyType = ...",
+              "function foo(): ReturnType<typeof bar>",
+              "type A = Partial<B>"
+            ],
+            "metadata": {
+              "typeParameters": "string[] | null",
+              "isBuiltin": "boolean — true for Promise, Array, Record, etc."
+            }
+          },
+
+          "TSExpressionWithTypeArguments": {
+            "description": "A type used in extends/implements with generic arguments. Emits alongside the 'inheritance' or 'implementation' node.",
+            "requiresTarget": true,
+            "targetField": "expression",
+            "weight": 0.2,
+            "metadata": {
+              "typeArguments": "string[]"
+            }
+          }
+
+        }
+      },
+
+      "type_assertions": {
+        "intent": "reference",
+        "nodes": {
+
+          "TSAsExpression": {
+            "description": "TypeScript 'as' type assertion. Not a cast in the runtime sense — maps to 'reference' since it reads a type.",
+            "requiresTarget": true,
+            "targetField": "typeAnnotation",
+            "weight": 0.15,
+            "forms": [
+              "value as string",
+              "obj as unknown as TargetType"
+            ],
+            "metadata": {
+              "assertionKind": "'as'"
+            }
+          },
+
+          "TSTypeAssertion": {
+            "description": "Legacy angle-bracket type assertion. Same semantics as TSAsExpression.",
+            "requiresTarget": true,
+            "targetField": "typeAnnotation",
+            "weight": 0.15,
+            "forms": [
+              "<string>value"
+            ],
+            "metadata": {
+              "assertionKind": "'angle-bracket'"
+            }
+          },
+
+          "TSNonNullExpression": {
+            "description": "Non-null assertion operator (!). Signals that the developer asserts a value is non-null.",
+            "requiresTarget": false,
+            "weight": 0.1,
+            "forms": [
+              "value!",
+              "obj!.property"
+            ],
+            "metadata": {
+              "assertionKind": "'non-null'"
+            }
+          }
+
+        }
+      },
+
+      "satisfies_and_declare": {
+        "nodes": {
+
+          "TSSatisfiesExpression": {
+            "description": "TypeScript 'satisfies' operator — checks a value against a type without widening.",
+            "intent": "reference",
+            "requiresTarget": true,
+            "targetField": "typeAnnotation",
+            "weight": 0.2,
+            "forms": [
+              "const palette = { red: [255, 0, 0] } satisfies Record<string, Color>"
+            ],
+            "metadata": {
+              "assertionKind": "'satisfies'"
+            }
+          },
+
+          "TSDeclareFunction": {
+            "description": "Ambient function declaration (declare function). Emits as 'definition.function' with isDeclare flag.",
+            "intent": "definition.function",
+            "weight": 0.6,
+            "forms": [
+              "declare function fetch(url: string): Promise<Response>"
+            ],
+            "metadata": {
+              "isDeclare": true
+            }
+          },
+
+          "TSParameterProperty": {
+            "description": "TypeScript constructor parameter property shorthand (creates a class field).",
+            "intent": "definition.variable",
+            "weight": 0.5,
+            "forms": [
+              "constructor(private name: string)",
+              "constructor(readonly id: number)"
+            ],
+            "metadata": {
+              "visibility": "'public' | 'private' | 'protected'",
+              "isReadonly": "boolean",
+              "isConstructorShorthand": true
+            }
+          }
+
+        }
+      }
+
+    }
+
+  },
+
+  "extended": {
+    "description": "Intents specific to JS/TS that are not in base-intents.json. Declared per the extensionContract.",
+
+    "jsx_render": {
+      "description": "Rendering a JSX component tree — used when the graph needs to distinguish component renders from plain function calls. Only emit this if your graph builder uses it; otherwise fall back to 'call'.",
+      "requiresTarget": true,
+      "defaultWeight": 0.35,
+      "metadata": {
+        "intentSource": "extended"
+      }
+    },
+
+    "type_export": {
+      "description": "Exporting a TypeScript type or interface. Distinct from value 'export' because it has no runtime presence — useful for tree-shaking analysis.",
+      "requiresTarget": false,
+      "defaultWeight": 0.7,
+      "forms": [
+        "export type { Foo }",
+        "export type Foo = ...",
+        "export interface Foo {}"
+      ],
+      "metadata": {
+        "intentSource": "extended"
+      }
+    },
+
+    "type_import": {
+      "description": "Importing a TypeScript type only. Erased at compile time — no runtime dependency edge should be created.",
+      "requiresTarget": true,
+      "defaultWeight": 0.8,
+      "forms": [
+        "import type { Foo } from './foo'",
+        "import type Foo from './foo'"
+      ],
+      "metadata": {
+        "intentSource": "extended",
+        "importKind": "'type'"
+      }
+    }
+
+  },
+
+  "weightOverrides": {
+    "description": "JS/TS-specific weight tuning that overrides base-intents.json defaults.",
+    "rules": [
+      {
+        "condition": "NewExpression (constructor call)",
+        "weight": 0.4,
+        "rationale": "Constructor calls imply a stronger coupling than plain calls."
+      },
+      {
+        "condition": "ImportDeclaration where importKind = 'type'",
+        "weight": 0.6,
+        "rationale": "Type-only imports have no runtime dependency; lower graph weight than value imports."
+      },
+      {
+        "condition": "JSXElement where isIntrinsic = true",
+        "weight": 0.15,
+        "rationale": "Intrinsic HTML elements are layout noise; suppress in dependency graphs."
+      },
+      {
+        "condition": "CallExpression where isChained = true",
+        "weight": 0.25,
+        "rationale": "Chained calls (fluent APIs) are less architecturally significant than direct calls."
+      },
+      {
+        "condition": "TSTypeReference where isBuiltin = true",
+        "weight": 0.05,
+        "rationale": "References to built-in types (Promise, Array, etc.) are noise in the graph."
+      }
+    ]
+  },
+
+  "validation": {
+    "extends": "base-intents.json#/validation",
+
+    "allowedIntents": [
+      "import",
+      "export",
+      "definition",
+      "definition.function",
+      "definition.class",
+      "definition.type",
+      "definition.variable",
+      "definition.enum",
+      "definition.namespace",
+      "definition.lambda",
+      "call",
+      "inheritance",
+      "implementation",
+      "decoration",
+      "reference",
+      "concurrency",
+      "defer",
+      "jsx_render",
+      "type_export",
+      "type_import"
+    ],
+
+    "targetRequiredFor": [
+      "import",
+      "call",
+      "inheritance",
+      "implementation",
+      "decoration",
+      "reference",
+      "type_import",
+      "jsx_render"
+    ],
+
+    "targetOptionalFor": [
+      "export",
+      "type_export"
+    ],
+
+    "metadataSchema": {
+      "description": "Expected metadata fields per intent for this parser. All optional unless marked required.",
+      "definition.function": {
+        "isAsync": "boolean",
+        "isGenerator": "boolean",
+        "isAbstract": "boolean",
+        "isStatic": "boolean",
+        "isDeclare": "boolean",
+        "isComponent": "boolean",
+        "kind": "'constructor' | 'method' | 'get' | 'set' | null",
+        "visibility": "'public' | 'private' | 'protected' | null",
+        "parameters": "Parameter[]",
+        "returnType": "string | null",
+        "typeParameters": "string[] | null",
+        "scope": "'module' | 'class' | 'function' | 'block'",
+        "decorators": "string[]",
+        "nodeType": "string — original AST node type, REQUIRED"
+      },
+      "definition.class": {
+        "isAbstract": "boolean",
+        "typeParameters": "string[] | null",
+        "decorators": "string[]",
+        "scope": "string",
+        "nodeType": "string — REQUIRED"
+      },
+      "definition.variable": {
+        "kind": "'const' | 'let' | 'var' | null",
+        "isDestructured": "boolean",
+        "typeAnnotation": "string | null",
+        "isReadonly": "boolean",
+        "isStatic": "boolean",
+        "scope": "string",
+        "nodeType": "string — REQUIRED"
+      },
+      "call": {
+        "callee": "string — REQUIRED",
+        "isOptionalChain": "boolean",
+        "isAwait": "boolean",
+        "isChained": "boolean",
+        "isSuper": "boolean",
+        "typeArguments": "string[] | null",
+        "scope": "string",
+        "nodeType": "string — REQUIRED"
+      },
+      "import": {
+        "importKind": "'value' | 'type' — REQUIRED",
+        "isDefault": "boolean",
+        "isNamespace": "boolean",
+        "isNamed": "boolean",
+        "isSideEffect": "boolean",
+        "isCJS": "boolean",
+        "specifiers": "string[]",
+        "nodeType": "string — REQUIRED"
+      },
+      "decoration": {
+        "decoratorName": "string — REQUIRED",
+        "isFactory": "boolean",
+        "appliedTo": "'class' | 'method' | 'property' | 'parameter' — REQUIRED",
+        "nodeType": "string — REQUIRED"
+      }
+    },
+
+    "nodeIdPattern": "^.+\\.(?:js|mjs|cjs|jsx|ts|tsx|d\\.ts):\\d+:\\d+:.+$",
+
+    "languageSpecificRules": [
+      "Emit 'inheritance' and 'definition.class' as separate nodes for the same ClassDeclaration when superClass is present.",
+      "Emit one 'implementation' node per interface in the implements clause.",
+      "Do NOT emit 'call' for require() — emit 'import' with metadata.isCJS = true.",
+      "Do NOT emit 'definition.function' for inline lambdas passed as arguments — emit 'definition.lambda'.",
+      "JSXElement with uppercase tag → 'call' with metadata.isComponent = true.",
+      "JSXElement with lowercase tag → 'call' with metadata.isIntrinsic = true and weight 0.15.",
+      "TSTypeReference to a builtin (Promise, Array, Map, Set, Record, Partial, Required, Readonly, Pick, Omit, Extract, Exclude, ReturnType, Parameters, InstanceType) → weight 0.05.",
+      "ImportDeclaration with importKind = 'type' → prefer extended intent 'type_import' over base 'import'.",
+      "ExportNamedDeclaration / ExportDefaultDeclaration of a type/interface → prefer extended intent 'type_export' over base 'export'.",
+      "VariableDeclaration where the init is a FunctionExpression or ArrowFunctionExpression → emit 'definition.function', not 'definition.variable'.",
+      "Tagged template expressions (gql`, html`, css`, sql`) → emit 'call' with the tag name as target."
+    ]
+  }
+}

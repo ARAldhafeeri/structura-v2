@@ -1,0 +1,291 @@
+{
+  "version": "1.2.0",
+  "name": "structura-base-intents",
+  "description": "Canonical intent registry for the Structura semantic layer validator. All parser output is validated against this file. Intents are language-agnostic — they represent semantic meaning, not syntax.",
+
+  "intents": {
+
+    "import": {
+      "description": "Bringing an external module, package, or symbol into scope.",
+      "requiresTarget": true,
+      "defaultWeight": 0.9,
+      "examples": {
+        "javascript": "import React from 'react'",
+        "python": "from os import path",
+        "go": "import \"net/http\"",
+        "rust": "use std::sync::Arc",
+        "java": "import java.util.List"
+      }
+    },
+
+    "export": {
+      "description": "Exposing a symbol, value, or type for external consumption.",
+      "requiresTarget": false,
+      "defaultWeight": 0.8,
+      "examples": {
+        "javascript": "export default MyClass",
+        "python": "__all__ = ['MyClass']",
+        "go": "func PublicFunc() {}",
+        "rust": "pub struct Server",
+        "java": "public class UserController"
+      }
+    },
+
+    "definition": {
+      "description": "Declaring a named, reusable code unit. Use the most specific sub-intent when possible.",
+      "requiresTarget": false,
+      "defaultWeight": 0.7,
+      "subIntents": {
+
+        "function": {
+          "description": "Function, method, procedure, or constructor declaration.",
+          "requiresTarget": false,
+          "defaultWeight": 0.7,
+          "examples": {
+            "javascript": "function fetchData() {}",
+            "python": "def get_user(self, id): ...",
+            "go": "func (h *Handler) GetUser(...) {}",
+            "rust": "pub fn run(&self) -> Result<()>",
+            "java": "public User getUser(@PathVariable Long id)"
+          }
+        },
+
+        "class": {
+          "description": "Class, struct, interface, trait, protocol, or record declaration.",
+          "requiresTarget": false,
+          "defaultWeight": 0.8,
+          "examples": {
+            "javascript": "class ApiClient {}",
+            "python": "class Database:",
+            "go": "type Handler struct {}",
+            "rust": "pub struct Server { ... }",
+            "java": "public class UserController"
+          }
+        },
+
+        "type": {
+          "description": "Type alias, type definition, or named type constraint.",
+          "requiresTarget": false,
+          "defaultWeight": 0.6,
+          "examples": {
+            "javascript": "type UserId = string",
+            "python": "UserId = NewType('UserId', int)",
+            "go": "type UserID int64",
+            "rust": "type Result<T> = std::result::Result<T, AppError>",
+            "java": "// via typedef patterns or generic bounds"
+          }
+        },
+
+        "variable": {
+          "description": "Variable, constant, or module-level field declaration.",
+          "requiresTarget": false,
+          "defaultWeight": 0.5,
+          "examples": {
+            "javascript": "const MAX_RETRIES = 3",
+            "python": "MAX_RETRIES = 3",
+            "go": "var defaultTimeout = 30 * time.Second",
+            "rust": "const MAX_RETRIES: u32 = 3",
+            "java": "private final int MAX_RETRIES = 3"
+          }
+        },
+
+        "enum": {
+          "description": "Enumeration or discriminated union declaration.",
+          "requiresTarget": false,
+          "defaultWeight": 0.65,
+          "examples": {
+            "javascript": "enum Direction { Up, Down }",
+            "python": "class Color(Enum): RED = 1",
+            "go": "const ( Active = iota; Inactive )",
+            "rust": "enum Status { Active, Inactive }",
+            "java": "public enum Status { ACTIVE, INACTIVE }"
+          }
+        },
+
+        "namespace": {
+          "description": "Namespace, module block, or package-level scope declaration.",
+          "requiresTarget": false,
+          "defaultWeight": 0.75,
+          "examples": {
+            "javascript": "namespace Auth { ... }",
+            "python": "# implicit via module file",
+            "go": "package api",
+            "rust": "mod handlers { ... }",
+            "java": "package com.myapp.api"
+          }
+        },
+
+        "lambda": {
+          "description": "Anonymous function, arrow function, or closure assigned to a binding or passed as a value.",
+          "requiresTarget": false,
+          "defaultWeight": 0.55,
+          "examples": {
+            "javascript": "const fn = (x) => x * 2",
+            "python": "fn = lambda x: x * 2",
+            "go": "fn := func(x int) int { return x * 2 }",
+            "rust": "let fn = |x| x * 2",
+            "java": "Function<Integer,Integer> fn = x -> x * 2"
+          }
+        }
+
+      }
+    },
+
+    "call": {
+      "description": "Invoking a function, method, or constructor.",
+      "requiresTarget": true,
+      "defaultWeight": 0.3,
+      "examples": {
+        "javascript": "axios.get('/api/users')",
+        "python": "self.session.query(User)",
+        "go": "h.db.GetUser(id)",
+        "rust": "TcpListener::bind(addr).await?",
+        "java": "userService.findById(id)"
+      }
+    },
+
+    "inheritance": {
+      "description": "A type extending, subclassing, or inheriting from another type.",
+      "requiresTarget": true,
+      "defaultWeight": 0.75,
+      "note": "Prefer this over 'definition.class' when the inheritance relationship is the primary semantic signal.",
+      "examples": {
+        "javascript": "class Dog extends Animal {}",
+        "python": "class Dog(Animal):",
+        "go": "// via embedding: type Dog struct { Animal }",
+        "rust": "// no direct inheritance; use 'implementation' for trait impl",
+        "java": "class Dog extends Animal"
+      }
+    },
+
+    "implementation": {
+      "description": "A type implementing an interface, trait, or protocol.",
+      "requiresTarget": true,
+      "defaultWeight": 0.75,
+      "examples": {
+        "javascript": "class MyComp extends React.Component implements IClickable",
+        "python": "class Dog(IAnimal):  # duck typing / ABC",
+        "go": "// implicit — struct satisfies interface by method set",
+        "rust": "impl Serialize for User { ... }",
+        "java": "class Dog implements IAnimal"
+      }
+    },
+
+    "decoration": {
+      "description": "A decorator, annotation, or attribute applied to a definition. Modifies or marks its target without being a call in the business-logic sense.",
+      "requiresTarget": true,
+      "defaultWeight": 0.4,
+      "examples": {
+        "javascript": "@Injectable() class UserService",
+        "python": "@dataclass\nclass User:",
+        "go": "// struct tags: `json:\"name\"`",
+        "rust": "#[derive(Debug, Serialize)]",
+        "java": "@RestController\n@RequestMapping(\"/api/users\")"
+      }
+    },
+
+    "reference": {
+      "description": "A read-only usage of a symbol — accessing a value or type without calling it.",
+      "requiresTarget": true,
+      "defaultWeight": 0.2,
+      "examples": {
+        "javascript": "const x = Config.DEFAULT_TIMEOUT",
+        "python": "return STATUS_CODES[code]",
+        "go": "log.Println(http.StatusOK)",
+        "rust": "let limit = MAX_RETRIES",
+        "java": "return HttpStatus.OK"
+      }
+    },
+
+    "concurrency": {
+      "description": "Spawning concurrent work: goroutines, threads, async tasks, or parallel fibers.",
+      "requiresTarget": false,
+      "defaultWeight": 0.55,
+      "note": "Only emit this intent when the concurrency boundary itself is semantically significant (e.g. tokio::spawn, go func(), Thread.start). Awaiting an already-async function is just a 'call'.",
+      "examples": {
+        "javascript": "new Worker('./worker.js')",
+        "python": "asyncio.create_task(fetch())",
+        "go": "go handleConnection(conn)",
+        "rust": "tokio::spawn(async move { ... })",
+        "java": "CompletableFuture.runAsync(() -> ...)"
+      }
+    },
+
+    "defer": {
+      "description": "Scheduling cleanup or teardown logic to run at scope exit, regardless of control flow.",
+      "requiresTarget": false,
+      "defaultWeight": 0.4,
+      "note": "Intentionally narrow. Maps to Go's 'defer', Rust's 'Drop', Python's context managers (__exit__), and Java's try-with-resources. Do not use for general finally blocks.",
+      "examples": {
+        "javascript": "// no native equivalent",
+        "python": "with open(f) as fp:  # __exit__ is the defer",
+        "go": "defer file.Close()",
+        "rust": "// Drop trait impl",
+        "java": "try (Resource r = open()) { ... }"
+      }
+    }
+
+  },
+
+  "validation": {
+    "requiredNodeFields": ["id", "intent", "name", "location", "weight"],
+    "optionalNodeFields": ["target", "metadata"],
+
+    "idPattern": "^.+:\\d+:\\d+:.+$",
+
+    "intentResolution": {
+      "description": "How the validator resolves an intent string from a SemanticNode.",
+      "rule": "An intent value is valid if it matches a top-level intent key OR a 'parentIntent.subIntent' dotted path (e.g. 'definition.function'). Both forms are accepted.",
+      "validExamples": [
+        "import",
+        "export",
+        "definition",
+        "definition.function",
+        "definition.class",
+        "definition.type",
+        "definition.variable",
+        "definition.enum",
+        "definition.namespace",
+        "definition.lambda",
+        "call",
+        "inheritance",
+        "implementation",
+        "decoration",
+        "reference",
+        "concurrency",
+        "defer"
+      ]
+    },
+
+    "targetRequirement": {
+      "description": "Intents where 'target' MUST be present and non-empty on the SemanticNode.",
+      "required": [
+        "import",
+        "call",
+        "inheritance",
+        "implementation",
+        "decoration",
+        "reference"
+      ]
+    },
+
+    "weightRange": [0.0, 1.0],
+
+    "locationFields": {
+      "required": ["start", "end"],
+      "positionFields": ["line", "column"],
+      "constraints": "All values must be non-negative integers. 'end' must be >= 'start'."
+    },
+
+    "extensionContract": {
+      "description": "Rules for parser-specific extended intents.",
+      "rules": [
+        "Extended intents MUST be declared in a parser-local 'extended-intents.json' with an 'extends' pointer to this file.",
+        "Extended intent keys MUST NOT shadow any key defined in this file.",
+        "Extended intent keys MUST be lowercase with underscores only.",
+        "Extended intents SHOULD still pass the same requiredNodeFields validation.",
+        "When a parser uses an extended intent, it MUST include a 'metadata.intentSource' field set to 'extended'."
+      ]
+    }
+  }
+}

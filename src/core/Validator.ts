@@ -2,7 +2,13 @@
 import fs from 'fs';
 import path from 'path';
 import type { SemanticNode, NodeIntent, Scope, SourceLocation, BaseIntentsJson, JavaScriptIntentsJson, ValidationIssue, ValidationReport } from '../contract.js';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Create validator with test JSON files
+const basePath = path.join(__dirname, "../../../src/definintions/base-intents.json");
+const jsPath = path.join(__dirname, "../../../src/definintions/javascript-intents.json");
 
 
 
@@ -303,7 +309,7 @@ export class SemanticValidator {
     // Search through all categories in astNodeMap
     for (const [category, categoryData] of Object.entries(extension.astNodeMap)) {
       const nodes = categoryData.nodes;
-      if (nodes[nodeType]) {
+      if (( typeof nodes === "object") && Object.hasOwn(nodes, nodeType)) {
         const nodeDef = nodes[nodeType];
         
         // Check if intent matches what the AST node should map to
@@ -523,11 +529,11 @@ export class SemanticValidator {
 export class ValidatorFactory {
   static createWithDefaultConfig(): SemanticValidator {
     // In a real implementation, you'd resolve these paths properly
-    const validator = new SemanticValidator('./base-intents.json');
+    const validator = new SemanticValidator(basePath);
     
     // Load JavaScript extension
     try {
-      validator.loadLanguageExtension('./javascript-intents.json');
+      validator.loadLanguageExtension(jsPath);
     } catch (error) {
       console.warn('Could not load JavaScript intents:', error);
     }
@@ -535,9 +541,19 @@ export class ValidatorFactory {
     return validator;
   }
 
-  static createWithPaths(basePath: string, languagePaths: string[]): SemanticValidator {
-    const validator = new SemanticValidator(basePath);
-    
+  static createWithPaths(basePathLocal: string, languagePaths: string[]): SemanticValidator {
+
+    const fallBackBasePath = basePath;
+    // handle wrong base intents absoulte url gracefully
+    let validator : SemanticValidator;
+    try {
+      validator = new SemanticValidator(basePathLocal);
+
+    } catch {
+      console.warn(`${basePathLocal} does not exist, falling back to ${basePath}`)
+      validator  = new SemanticValidator(basePath);
+    }
+  
     for (const langPath of languagePaths) {
       try {
         validator.loadLanguageExtension(langPath);

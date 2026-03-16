@@ -1,7 +1,7 @@
 // test/semantic-validator.test.ts
 import * as assert from "assert";
 import { SemanticValidator, ValidatorFactory } from "../../src/core/Validator.js";
-import type { SemanticNode } from "../../src/contract.js";
+import type { SemanticNode } from "../../src/contract/Graph.js";
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'fs';

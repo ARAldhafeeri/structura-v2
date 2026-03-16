@@ -1,4 +1,4 @@
-import type { SemanticNode, SemanticNodeMetadata } from "../contract.js";
+import type { SemanticNode, SemanticNodeMetadata } from "../contract/Graph.js";
 import { buildLineOffsets, spanToLoc } from "../uitlities/parser.js";
 import { walkScoped } from "./Walker.js";
 import { type ScopeKind } from "../uitlities/walker.js";

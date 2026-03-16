@@ -1,7 +1,8 @@
 // semantic-validator.ts
 import fs from 'fs';
 import path from 'path';
-import type { SemanticNode, NodeIntent, Scope, SourceLocation, BaseIntentsJson, JavaScriptIntentsJson, ValidationIssue, ValidationReport } from '../contract.js';
+import type { SemanticNode, NodeIntent, Scope, SourceLocation} from '../contract/Graph.js';
+import type { BaseIntentsJson, JavaScriptIntentsJson, ValidationIssue, ValidationReport } from "../contract/Validator.js"
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);

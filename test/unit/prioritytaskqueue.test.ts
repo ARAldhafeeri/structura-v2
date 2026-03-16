@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import sinon from "sinon";
-import { StracturaQueueTasks, type PriorityTask } from "../../src/contract.js";
+import { StracturaQueueTasks, type PriorityTask } from "../../src/contract/PriorityTaskQueue.js";
 import { PriorityTaskQueue } from "../../src/core/PriorityTaskQueue.js";
 
 // Mock instances

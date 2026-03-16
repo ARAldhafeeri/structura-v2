@@ -1,5 +1,5 @@
 import { WEIGHTS } from "../graph/weights.js";
-import type { SemanticNode, SemanticNodeMetadata } from "../contract.js";
+import type { SemanticNode, SemanticNodeMetadata } from "../contract/Graph.js";
 import {
   makeId,
   spanToLoc,

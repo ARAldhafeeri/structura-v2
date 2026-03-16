@@ -1,5 +1,5 @@
 import { Queue, Worker } from "bullmq";
-import { StracturaQueueTasks, TASK_NAMES_WITH_PRIORITY, type PriorityTask, type IPriorityTaskQueue } from "../contract.js";
+import { StracturaQueueTasks, TASK_NAMES_WITH_PRIORITY, type PriorityTask, type IPriorityTaskQueue } from "../contract/PriorityTaskQueue.js";
 
 
 /**

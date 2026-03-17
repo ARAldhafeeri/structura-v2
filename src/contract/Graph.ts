@@ -132,15 +132,21 @@ export interface SemanticNode {
   parentId?: string;
 }
 
+export interface SemanticEdge {
+  from: string;
+  to: string;
+  weight: number;
+}
+
 export interface SemanticGraph {
   /** All nodes in the graph */
   nodes: Map<string, SemanticNode>;
   
   /** Adjacency list of edges (sourceId -> targetId) */
-  edges: Map<string, Set<string>>;
+  edges: Map<string, SemanticEdge>;
   
   /** Reverse edges for bidirectional traversal */
-  reverseEdges: Map<string, Set<string>>;
+  reverseEdges: Map<string, SemanticEdge>;
   
   /** File path this graph represents */
   filePath: string;
@@ -227,3 +233,8 @@ export interface GraphStats {
   /** Most connected nodes (by degree) */
   hubs: Array<{ id: string; degree: number }>;
 }
+
+/**
+ * Simple way to define incremental graph expansions policies 
+ */
+export type ExpansionPolicy = { order: NodeIntent[]; maxDepth: number; maxNodesPerLevel: number; fanOutLimit: number; weightThreshold: number; stopOnCycles: boolean; includeExternal: boolean };

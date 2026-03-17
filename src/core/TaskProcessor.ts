@@ -1,4 +1,4 @@
-import type { PriorityTask, TASK_NAME } from "../contract/PriorityTaskQueue.js";
+import { createTaskKeyForPriorityQueueHandlerRegistry, type PriorityTask, type TaskCategory } from "../contract/PriorityTaskQueue.js";
 import type { ITaskProcessor, ITaskProcessorRegistry, TaskProcessorHandler, TaskRegistryMap } from "../contract/TaskProcessor.js";
 
 export class TaskProcessorRegistry implements ITaskProcessorRegistry {
@@ -15,24 +15,23 @@ export class TaskProcessorRegistry implements ITaskProcessorRegistry {
      * @param type - string donating the task type.
      * @param processor  - handler with specific contract for the task type.
      */
-    add(type: TASK_NAME, processor: TaskProcessorHandler): void {
-        this.registry.set(type, processor);
+    add(task: PriorityTask, processor: TaskProcessorHandler): void {
+        this.registry.set(createTaskKeyForPriorityQueueHandlerRegistry(task), processor);
     }
 
     /**
      * Removes single registry entry of task handlers
      * @param type 
      */
-    remove(type: TASK_NAME): void {
-        this.registry.delete(type);
+    remove(task: PriorityTask): void {
+        this.registry.delete(createTaskKeyForPriorityQueueHandlerRegistry(task));
     }
 
     /**
-     * Gets task processor handler or null based on the provided type.
-     * @param type 
+     * Gets task processor handler or null based on the provided task.
      */
-    get(type: TASK_NAME): TaskProcessorHandler | undefined {
-        return this.registry.get(type);
+    get(task : PriorityTask): TaskProcessorHandler | undefined {
+        return this.registry.get(createTaskKeyForPriorityQueueHandlerRegistry(task));
     }
 
     /**
@@ -48,22 +47,22 @@ export class TaskProcessor implements ITaskProcessor {
         this.registry = registry;
     }
 
-    async process(type: TASK_NAME, data: PriorityTask): Promise<boolean> {
-        const processor = this.registry.get(type);
+    async process(task: PriorityTask): Promise<boolean> {
+        const processor = this.registry.get(task);
 
         
         /**
          * There is no processor for given task type
          */
         if(!processor){
-            console.warn(`${type} has no task processor registered!`)
+            console.warn(`${task.type, task.subType} has no task processor registered!`)
             return false;
         };
 
         /**
          * Process the task
          */
-        const output = await processor(data);
+        const output = await processor(task);
 
         // output failed return false to notify the next layer
         if(!output) {

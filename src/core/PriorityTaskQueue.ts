@@ -1,12 +1,12 @@
 import { Queue, Worker } from "bullmq";
-import { StracturaQueueTasks, TASK_NAMES_WITH_PRIORITY, type PriorityTask, type IPriorityTaskQueue } from "../contract/PriorityTaskQueue.js";
+import { TASK_NAMES_WITH_PRIORITY, type PriorityTask, type IPriorityTaskQueue, TASK_NAMES_KEYS_SET } from "../contract/PriorityTaskQueue.js";
 
 
 /**
  * Validate queue name 
  */
 const isQueueNameValid = (name:string) => {
-    return Object.keys(TASK_NAMES_WITH_PRIORITY).includes(name);
+    return TASK_NAMES_KEYS_SET.has(name);
 }
 
 /**

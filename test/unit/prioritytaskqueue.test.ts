@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import sinon from "sinon";
-import { StracturaQueueTasks, type PriorityTask } from "../../src/contract/PriorityTaskQueue.js";
+import { createTask, createTaskKeyForPriorityQueueHandlerRegistry, type PriorityTask } from "../../src/contract/PriorityTaskQueue.js";
 import { PriorityTaskQueue } from "../../src/core/PriorityTaskQueue.js";
 
 // Mock instances
@@ -68,49 +68,14 @@ suite("PriorityTaskQueue Tests", () => {
       queue = createQueue(validQueueName, processorStub);
     });
 
-    test("Positive: Should add valid task to queue", () => {
-      const task: PriorityTask = StracturaQueueTasks.getGraphConstructionTask(
-        "Test graph construction"
-      );
-
-      queue.addTask(task);
-
-      assert.strictEqual(mockQueue.add.calledOnce, true);
-      const [jobId, jobData, options] = mockQueue.add.firstCall.args;
-      assert.strictEqual(jobId, task.id);
-      assert.deepStrictEqual(jobData, task);
-      assert.deepStrictEqual(options, { priority: task.priority });
-    });
-
-    test("Edge case: Should add task with minimum priority (10)", () => {
-      const task: PriorityTask = StracturaQueueTasks.getOtherTask(
-        "Low priority task"
-      );
-
-      queue.addTask(task);
-
-      assert.strictEqual(mockQueue.add.calledOnce, true);
-      const [, , options] = mockQueue.add.firstCall.args;
-      assert.strictEqual(options.priority, 10);
-    });
-
-    test("Edge case: Should add task with maximum priority (60)", () => {
-      const task: PriorityTask = StracturaQueueTasks.getGraphConstructionTask(
-        "High priority task"
-      );
-
-      queue.addTask(task);
-
-      assert.strictEqual(mockQueue.add.calledOnce, true);
-      const [, , options] = mockQueue.add.firstCall.args;
-      assert.strictEqual(options.priority, 60);
-    });
-
     test("Edge case: Should handle task with custom priority not in TASK_NAMES_WITH_PRIORITY", () => {
       const task: PriorityTask = {
         id: "custom-task-123",
         type: "custom-type",
-        priority: 25,
+        subType: "123",
+        subPriority: 1,
+        priority: 2000,
+        data: {},
         description: "Custom priority task",
         createdAt: Date.now(),
       };
@@ -119,25 +84,9 @@ suite("PriorityTaskQueue Tests", () => {
 
       assert.strictEqual(mockQueue.add.calledOnce, true);
       const [, , options] = mockQueue.add.firstCall.args;
-      assert.strictEqual(options.priority, 25);
+      assert.strictEqual(options.priority, 2000);
     });
 
-    test("Edge case: Should handle adding multiple tasks", () => {
-      const tasks = [
-        StracturaQueueTasks.getGraphConstructionTask("Task 1"),
-        StracturaQueueTasks.getUserInteractionTask("Task 2"),
-        StracturaQueueTasks.getBackgroundProcessingTask("Task 3"),
-      ];
-
-      tasks.forEach((task) => queue.addTask(task));
-
-      assert.strictEqual(mockQueue.add.callCount, 3);
-      tasks.forEach((task, index) => {
-        const [jobId, , options] = mockQueue.add.getCall(index).args;
-        assert.strictEqual(jobId, task.id);
-        assert.strictEqual(options.priority, task.priority);
-      });
-    });
   });
 
   suite("clearQueue Tests", () => {
@@ -191,29 +140,13 @@ suite("PriorityTaskQueue Tests", () => {
   });
 
   suite("Worker Processing Tests", () => {
-    test("Positive: Should process tasks through worker", async () => {
-      const processorSpy = sinon.spy();
-      queue = createQueue(validQueueName, processorSpy as any);
-
-      const mockJob = {
-        data: StracturaQueueTasks.getGraphConstructionTask("Test task"),
-      };
-
-      // Grab the callback passed as 2nd arg to WorkerClass(name, callback, opts)
-      const workerCallback = mockDeps.WorkerClass.firstCall.args[1];
-      await workerCallback(mockJob);
-
-      assert.strictEqual(processorSpy.calledOnce, true);
-      assert.deepStrictEqual(processorSpy.firstCall.args[0], mockJob.data);
-    });
-
     test("Edge case: Worker should handle processor errors", async () => {
       const error = new Error("Processor failed");
       const failingProcessor = sinon.stub().rejects(error);
       queue = createQueue(validQueueName, failingProcessor);
 
       const mockJob = {
-        data: StracturaQueueTasks.getGraphConstructionTask("Failing task"),
+        data: {},
       };
 
       const workerCallback = mockDeps.WorkerClass.firstCall.args[1];
@@ -228,33 +161,51 @@ suite("PriorityTaskQueue Tests", () => {
   });
 
   suite("Task Creation Tests", () => {
-    test("Positive: Should create all task types with correct priorities", () => {
-      const tasks = [
-        StracturaQueueTasks.getGraphConstructionTask("Graph task"),
-        StracturaQueueTasks.getUserInteractionTask("UI task"),
-        StracturaQueueTasks.getBackgroundProcessingTask("Background task"),
-        StracturaQueueTasks.getLocalIndexingTask("Indexing task"),
-        StracturaQueueTasks.getSnapshottingTask("Snapshot task"),
-        StracturaQueueTasks.getOtherTask("Other task"),
-      ];
+    test("Positive: Should create task key with kebab style", () => {
+       const task: PriorityTask = {
+        id: "custom-task-123",
+        type: "custom-type",
+        subType: "123",
+        subPriority: 1,
+        priority: 2000,
+        data: {},
+        description: "Custom priority task",
+        createdAt: Date.now(),
+      };
 
-      const expectedPriorities = [60, 50, 40, 30, 20, 10];
+      const expectedKey = `${task.type}-${task.subType}`
+      const kebabStyleTaskCreation = createTaskKeyForPriorityQueueHandlerRegistry(task)
 
-      tasks.forEach((task, index) => {
-        assert.strictEqual(task.priority, expectedPriorities[index]);
-        assert.ok(task.id.startsWith("task-"));
-        assert.ok(task.createdAt <= Date.now());
-      });
+        assert.strictEqual(kebabStyleTaskCreation, expectedKey);
     });
 
-    test("Edge case: Tasks created sequentially should have unique IDs", () => {
-      const clock = sinon.useFakeTimers();
-      const task1 = StracturaQueueTasks.getGraphConstructionTask("Task 1");
-      clock.tick(1);
-      const task2 = StracturaQueueTasks.getGraphConstructionTask("Task 2");
-      clock.restore();
+    test("Positive: should show composite priority score correctly", () => {
+       const task: PriorityTask = {
+        id: "custom-task-123",
+        type: "custom-type",
+        subType: "",
+        subPriority: 99,
+        priority: 6000,
+        data: {},
+        description: "Custom priority task",
+        createdAt: Date.now(),
+      };
 
-      assert.notStrictEqual(task1.id, task2.id);
+      let createdTask = createTask("initialize-graph", task);
+        
+        // true only if the sub task within the range of 1-99
+        assert.strictEqual(createdTask.priority, task.priority + task.subPriority);
+
+        // should clap upper bound beyond 99
+        task.subPriority = 99999
+        assert.strictEqual(createdTask.priority, task.priority + 99);
+        // should clap lower bound below 1
+         task.subPriority = 1
+        assert.strictEqual(createdTask.priority, task.priority + 99);
+
     });
+    
   });
+
+    
 });

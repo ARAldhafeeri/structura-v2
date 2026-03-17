@@ -1,4 +1,9 @@
-import type { PriorityTask,  TASK_NAME } from "./PriorityTaskQueue.js";
+import type { PriorityTask,  TaskCategory } from "./PriorityTaskQueue.js";
+import type { ICacheState, IGraphState, ISemanticIndexState, ISessionState } from "./State.js";
+import type { IUserSettings } from "./UserSettings.js";
+import * as vscode from 'vscode';
+import type { IWebviewController } from "./ViewPort.js";
+
 
 /**
  * This file have TaskProcessor and TaskProcessorRegistry  contracts
@@ -9,15 +14,29 @@ import type { PriorityTask,  TASK_NAME } from "./PriorityTaskQueue.js";
  */
 
 /**
+ * Processing context optionally passed to every processor within stractura
+ */
+export interface IProcessorContext {
+  graph: IGraphState;
+  cache: ICacheState;
+  session: ISessionState;
+  semanticIndex: ISemanticIndexState;
+  settings: IUserSettings;
+  webview?: IWebviewController;
+  editor: vscode.ExtensionContext;
+}
+
+
+/**
  * Task Processor Handler contract 
  */
 
-export type  TaskProcessorHandler = (data: any) => Promise<boolean>;
+export type  TaskProcessorHandler = (data: any, ctx?: IProcessorContext) => Promise<boolean>;
 
 /**
  * Simple Task registry a map with setters and getters and validation.
  */
-export type TaskRegistryMap = Map<TASK_NAME, TaskProcessorHandler>;
+export type TaskRegistryMap = Map<string, TaskProcessorHandler>;
 
 /**
  * TaskProcessorRegistry which is simple in-memory registry for task processors with methods such:
@@ -28,9 +47,9 @@ export type TaskRegistryMap = Map<TASK_NAME, TaskProcessorHandler>;
  */
 export interface ITaskProcessorRegistry {
     registry: TaskRegistryMap;
-    add(type: TASK_NAME, processor: TaskProcessorHandler): void;
-    remove(type: TASK_NAME): void;
-    get(type: TASK_NAME): TaskProcessorHandler | undefined;
+    add(task: PriorityTask,  processor: TaskProcessorHandler): void;
+    remove(task: PriorityTask): void;
+    get(task: PriorityTask): TaskProcessorHandler | undefined;
     clean(): void;
 }
 
@@ -45,6 +64,5 @@ export interface ITaskProcessorRegistry {
  */
 export interface ITaskProcessor {
     registry: ITaskProcessorRegistry;
-    process(type: TASK_NAME, data: PriorityTask): Promise<boolean>;
+    process(task: PriorityTask): Promise<boolean>;
 }
-

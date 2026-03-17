@@ -70,8 +70,7 @@ suite("PriorityTaskQueue Tests", () => {
 
     test("Positive: Should add valid task to queue", () => {
       const task: PriorityTask = StracturaQueueTasks.getGraphConstructionTask(
-        "Test graph construction",
-        async () => {}
+        "Test graph construction"
       );
 
       queue.addTask(task);
@@ -85,8 +84,7 @@ suite("PriorityTaskQueue Tests", () => {
 
     test("Edge case: Should add task with minimum priority (10)", () => {
       const task: PriorityTask = StracturaQueueTasks.getOtherTask(
-        "Low priority task",
-        async () => {}
+        "Low priority task"
       );
 
       queue.addTask(task);
@@ -98,8 +96,7 @@ suite("PriorityTaskQueue Tests", () => {
 
     test("Edge case: Should add task with maximum priority (60)", () => {
       const task: PriorityTask = StracturaQueueTasks.getGraphConstructionTask(
-        "High priority task",
-        async () => {}
+        "High priority task"
       );
 
       queue.addTask(task);
@@ -112,7 +109,6 @@ suite("PriorityTaskQueue Tests", () => {
     test("Edge case: Should handle task with custom priority not in TASK_NAMES_WITH_PRIORITY", () => {
       const task: PriorityTask = {
         id: "custom-task-123",
-        task: async () => {},
         type: "custom-type",
         priority: 25,
         description: "Custom priority task",
@@ -128,9 +124,9 @@ suite("PriorityTaskQueue Tests", () => {
 
     test("Edge case: Should handle adding multiple tasks", () => {
       const tasks = [
-        StracturaQueueTasks.getGraphConstructionTask("Task 1", async () => {}),
-        StracturaQueueTasks.getUserInteractionTask("Task 2", async () => {}),
-        StracturaQueueTasks.getBackgroundProcessingTask("Task 3", async () => {}),
+        StracturaQueueTasks.getGraphConstructionTask("Task 1"),
+        StracturaQueueTasks.getUserInteractionTask("Task 2"),
+        StracturaQueueTasks.getBackgroundProcessingTask("Task 3"),
       ];
 
       tasks.forEach((task) => queue.addTask(task));
@@ -200,7 +196,7 @@ suite("PriorityTaskQueue Tests", () => {
       queue = createQueue(validQueueName, processorSpy as any);
 
       const mockJob = {
-        data: StracturaQueueTasks.getGraphConstructionTask("Test task", async () => {}),
+        data: StracturaQueueTasks.getGraphConstructionTask("Test task"),
       };
 
       // Grab the callback passed as 2nd arg to WorkerClass(name, callback, opts)
@@ -217,7 +213,7 @@ suite("PriorityTaskQueue Tests", () => {
       queue = createQueue(validQueueName, failingProcessor);
 
       const mockJob = {
-        data: StracturaQueueTasks.getGraphConstructionTask("Failing task", async () => {}),
+        data: StracturaQueueTasks.getGraphConstructionTask("Failing task"),
       };
 
       const workerCallback = mockDeps.WorkerClass.firstCall.args[1];
@@ -234,12 +230,12 @@ suite("PriorityTaskQueue Tests", () => {
   suite("Task Creation Tests", () => {
     test("Positive: Should create all task types with correct priorities", () => {
       const tasks = [
-        StracturaQueueTasks.getGraphConstructionTask("Graph task", async () => {}),
-        StracturaQueueTasks.getUserInteractionTask("UI task", async () => {}),
-        StracturaQueueTasks.getBackgroundProcessingTask("Background task", async () => {}),
-        StracturaQueueTasks.getLocalIndexingTask("Indexing task", async () => {}),
-        StracturaQueueTasks.getSnapshottingTask("Snapshot task", async () => {}),
-        StracturaQueueTasks.getOtherTask("Other task", async () => {}),
+        StracturaQueueTasks.getGraphConstructionTask("Graph task"),
+        StracturaQueueTasks.getUserInteractionTask("UI task"),
+        StracturaQueueTasks.getBackgroundProcessingTask("Background task"),
+        StracturaQueueTasks.getLocalIndexingTask("Indexing task"),
+        StracturaQueueTasks.getSnapshottingTask("Snapshot task"),
+        StracturaQueueTasks.getOtherTask("Other task"),
       ];
 
       const expectedPriorities = [60, 50, 40, 30, 20, 10];
@@ -253,9 +249,9 @@ suite("PriorityTaskQueue Tests", () => {
 
     test("Edge case: Tasks created sequentially should have unique IDs", () => {
       const clock = sinon.useFakeTimers();
-      const task1 = StracturaQueueTasks.getGraphConstructionTask("Task 1", async () => {});
+      const task1 = StracturaQueueTasks.getGraphConstructionTask("Task 1");
       clock.tick(1);
-      const task2 = StracturaQueueTasks.getGraphConstructionTask("Task 2", async () => {});
+      const task2 = StracturaQueueTasks.getGraphConstructionTask("Task 2");
       clock.restore();
 
       assert.notStrictEqual(task1.id, task2.id);

@@ -22,7 +22,6 @@ import type { Queue, Worker } from "bullmq";
  */
 export interface PriorityTask {
   id: string;
-  task: () => Promise<void>;
   type: string;
   priority: number;
   description?: string;
@@ -49,7 +48,7 @@ export interface IPriorityTaskQueue {
 
 }
 
-type TASK_NAME = "graph-construction" | "user-interaction" | "background-processing" | "local-indexing" | "snapshotting" | "other";
+export type TASK_NAME = "graph-construction" | "user-interaction" | "background-processing" | "local-indexing" | "snapshotting" | "other";
 type PRIORITY_LEVEL = 10 | 20 | 30 | 40 | 50 | 60;
 type TaskPriorityMapping = Record<TASK_NAME, PRIORITY_LEVEL>;
 
@@ -71,55 +70,49 @@ export const TASK_NAMES_WITH_PRIORITY : TaskPriorityMapping = {
 }
 
 
-const getGraphConstructionTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getGraphConstructionTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
-  task,
   type: TASK_NAMES.graphConstruction,
   priority: TASK_NAMES_WITH_PRIORITY["graph-construction"],
   description,
   createdAt: Date.now()
 });
 
-const getUserInteractionTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getUserInteractionTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
-  task,
   type: TASK_NAMES.userInteraction,
   priority: TASK_NAMES_WITH_PRIORITY["user-interaction"],
   description,
   createdAt: Date.now()
 });
 
-const getBackgroundProcessingTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getBackgroundProcessingTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
-  task,
   type: TASK_NAMES.backgroundProcessing,
   priority: TASK_NAMES_WITH_PRIORITY["background-processing"],
   description,
   createdAt: Date.now()
 });
 
-const getLocalIndexingTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getLocalIndexingTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
   type: TASK_NAMES.localIndexing,
-  task,
   priority: TASK_NAMES_WITH_PRIORITY["local-indexing"],
   description,
   createdAt: Date.now(),
 });
 
-const getSnapshottingTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getSnapshottingTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
   type: TASK_NAMES.snapshoting,
-  task,
   priority: TASK_NAMES_WITH_PRIORITY["snapshotting"],
   description,
   createdAt: Date.now(),
 });
 
-const getOtherTask = (description: string, task: () => Promise<void>): PriorityTask => ({
+const getOtherTask = (description: string): PriorityTask => ({
   id: `task-${Date.now()}`,
   type: TASK_NAMES.other,
-  task,
   priority: TASK_NAMES_WITH_PRIORITY["other"],
   description, 
   createdAt: Date.now()

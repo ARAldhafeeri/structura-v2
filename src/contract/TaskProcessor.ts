@@ -1,8 +1,11 @@
 import type { PriorityTask,  TaskCategory } from "./PriorityTaskQueue.js";
-import type { ICacheState, IGraphState, ISemanticIndexState, ISessionState } from "./State.js";
 import type { IUserSettings } from "./UserSettings.js";
 import * as vscode from 'vscode';
 import type { IWebviewController } from "./ViewPort.js";
+import type { IGraphState } from "./State/Graph.js";
+import type { ICacheState } from "./State/Cache.js";
+import type { ISemanticIndexState } from "./State/Semantic.js";
+import type { ISessionState } from "./State/Session.js";
 
 
 /**

@@ -71,6 +71,7 @@
     "@parcel/watcher": "^2.5.6",
     "@typescript-eslint/parser": "^6.0.0",
     "bullmq": "^5.71.0",
+    "chromadb": "^3.3.3",
     "esrap": "^2.2.3",
     "oxc-parser": "^0.115.0"
   }

@@ -4,12 +4,23 @@ import type {
 } from "../contract/Graph.js";
 
 
-/** Build the stable node id: filePath:line:column:nodeType */
+
 /** 
- * 
+ *  Build the stable node id: filePath:line:column:nodeType
+ * solid collision free cheap, fast,  human friendly, uuid, hash too expensive here  samples:
+ * /home/user/project/src/components/Button.tsx:42:8:JSXElement
+/home/user/project/src/components/Button.tsx:42:8:JSXOpeningElement
+/home/user/project/src/components/Button.tsx:43:10:JSXAttribute
+/home/user/project/src/utils/api.ts:17:2:VariableDeclaration
+/home/user/project/src/utils/api.ts:17:6:VariableDeclarator
+/home/user/project/src/utils/api.ts:18:15:ArrowFunctionExpression
+/home/user/project/src/utils/api.ts:19:4:ReturnStatement
+/home/user/project/src/hooks/useAuth.ts:8:0:ImportDeclaration
+/home/user/project/src/hooks/useAuth.ts:12:2:VariableDeclaration
+/home/user/project/src/hooks/useAuth.ts:12:10:CallExpression
 */
 export const makeId = (filePath: string, loc: SourceLocation, nodeType: string) =>
-  `${filePath}:${loc.start.line}:${loc.start.column}:${nodeType}`;
+  `${filePath.replace(/:/g, "%3A")}:${loc.start.line}:${loc.start.column}:${nodeType}`;
 
 /** 
  * Convert OXC span { start, end } (byte offsets) + sourceText → line/col 

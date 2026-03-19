@@ -13,7 +13,6 @@ import type { CacheStats } from "./Cache.js";
 export interface IStracturaGraphState  {
   nodes: SemanticNode[];
   edges: SemanticEdge[];
-
 }
 
 

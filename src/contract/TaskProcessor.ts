@@ -5,7 +5,7 @@ import type { IWebviewController } from "./ViewPort.js";
 import type { IGraphState } from "./State/Graph.js";
 import type { ICacheState } from "./State/Cache.js";
 import type { ISemanticIndexState } from "./State/Semantic.js";
-import type { ISessionState } from "./State/Session.js";
+// import type { ISess } from "./State/Session.js";
 
 
 /**
@@ -22,7 +22,7 @@ import type { ISessionState } from "./State/Session.js";
 export interface IProcessorContext {
   graph: IGraphState;
   cache: ICacheState;
-  session: ISessionState;
+  session: any; // should be ISession
   semanticIndex: ISemanticIndexState;
   settings: IUserSettings;
   webview?: IWebviewController;

@@ -15,8 +15,7 @@ export type CacheStats = { size: number; hits: number; misses: number; lastUpdat
  */
 export interface ICacheListNode {
   /**
-   * Node file path, nodes are parsed programming lanaguge files.
-   * picking files path to ease the cache invalidation.
+   * Stractura already uses unique identifier SemanticNode.id which 128bit string hash used across the source code
    */
   key: string;
   value: SemanticNode;

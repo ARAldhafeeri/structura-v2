@@ -58,6 +58,7 @@
     "package": "npm run build && vsce package"
   },
   "devDependencies": {
+    "@types/deep-diff": "^1.0.5",
     "@types/node": "^25.3.3",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",
@@ -72,7 +73,9 @@
     "@typescript-eslint/parser": "^6.0.0",
     "bullmq": "^5.71.0",
     "chromadb": "^3.3.3",
+    "deep-diff": "^1.0.2",
     "esrap": "^2.2.3",
-    "oxc-parser": "^0.115.0"
+    "oxc-parser": "^0.115.0",
+    "uuid": "^13.0.0"
   }
 }

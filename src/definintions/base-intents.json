@@ -231,7 +231,7 @@
     "requiredNodeFields": ["id", "intent", "name", "location", "weight"],
     "optionalNodeFields": ["target", "metadata"],
 
-    "idPattern": "^.+:\\d+:\\d+:.+$",
+    "idPattern": "^[^:]+:\\d+:\\d+:[^:]+$",
 
     "intentResolution": {
       "description": "How the validator resolves an intent string from a SemanticNode.",

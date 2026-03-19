@@ -1,41 +1,75 @@
-import type { SemanticNode } from "../Graph.js";
-import type { ViewportState } from "../ViewPort.js";
+import type { IStracturaSnapshotState } from "./Snapshot.js";
 
 /**
- * User session transition and management methods of StracturaSessionState
+ * Simple way to keep track of user session while they
+ * interact with stractura graph. 
+ * Also a way to enable user to revisit sessions and name them
+ * This is also can be for cool features like playbooks where users
+ * record certain clicks and display them for others.
  */
 export interface IStracturaSessionState {
-  activeFile: string;
-  selectedNodes: SemanticNode[];
-  viewPort: ViewportState;
+  // generated session Id and the presisted per change stractura snapshot
+  sessions: Map<string, IStracturaSnapshotState>;
+  
+  // Optional: Add metadata for each session
+  metadata?: Map<string, SessionMetadata>;
+}
+
+export interface SessionMetadata {
+  name?: string;
+  createdAt: number;
+  lastAccessed: number;
+  description?: string;
+  tags?: string[];
 }
 
 /**
  * Session management 
  */
 export interface ISessionState {
+  /**
+   * state of session keeping simple initially should only
+   * give the user the ability to time travel but also
+   * extendable for future features.
+   */
   state: IStracturaSessionState;
 
-  // Current file
-  getActiveFile(): string | null;
-  setActiveFile(path: string | null): void;
+  /**
+   * Set the session session id;
+   * @param sessionId : The user current session id.
+   */
+  set(sessionId: string, history: IStracturaSnapshotState): void;
   
-  // Selection management
-  getSelectedNodes(): string[];
-  setSelectedNodes(nodeIds: string[]): void;
-  toggleNodeSelection(nodeId: string): void;  // Suggested addition
-  clearSelection(): void;  
-  // Viewport
-  getViewport(): ViewportState;
-  setViewport(viewport: ViewportState): void;
+  /**
+   * Get session by id
+   * @param sessionId : The user current session id.
+   */
+  get(sessionId: string): IStracturaSnapshotState | undefined; // Return the snapshot, not the session map
+
+  /**
+   *  Delete single session 
+   * @param sessionId The user current session id
+   */
+  delete(sessionId: string): void;
   
-  // History management - add types
-  pushToHistory<T>(state: T): void;
-  canUndo(): boolean;  
-  canRedo(): boolean;  
-  undo<T>(): T | undefined;
-  redo<T>(): T | undefined;
+  /**
+   * Purge the storage and call struacturaSnapshotState 
+   * .clear method (not .delete)
+   * Called when user click clean up button on the ui
+   * This action is same as going to .sturactura folder 
+   * and delete everything in snapshot but with handling
+   * memory too.
+   * @param sessionId The user current session Id
+   */
+  purge(sessionId: string): Promise<void>; // Should be async due to file operations
   
-  // History size limit?
-  maxHistorySize?: number;
+  /**
+   * List all available sessions
+   */
+  list(): string[];
+  
+  /**
+   * Rename a session
+   */
+  rename(sessionId: string, name: string): void;
 }

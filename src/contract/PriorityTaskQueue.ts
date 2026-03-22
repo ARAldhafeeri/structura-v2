@@ -35,7 +35,7 @@ export type GraphConstructionSubType =
   | "file-change"
   | "batch-process-files";
 
-export type UserInteractionSubType = 
+export type UserInteractionSubType =
   | "node-click"
   | "node-double-click"
   | "node-hover"
@@ -45,7 +45,10 @@ export type UserInteractionSubType =
   | "expand-selected-node"
   | "deselect-all-nodes"
   | "viewport-change"
-  | "node-drag-drop";
+  | "node-drag-drop"
+  | "select-node"
+  | "pin-node"
+  | "hide-node";
 
 export type StateManagementSubType = 
   | "save-state"
@@ -118,7 +121,10 @@ export const USER_INTERACTION_SUBTYPES = {
   EXPAND_SELECTED_NODE: "expand-selected-node",
   DESELECT_ALL_NODES: "deselect-all-nodes",
   VIEWPORT_CHANGE: "viewport-change",
-  NODE_DRAG_DROP: "node-drag-drop"
+  NODE_DRAG_DROP: "node-drag-drop",
+  SELECT_NODE: "select-node",
+  PIN_NODE: "pin-node",
+  HIDE_NODE: "hide-node"
 } as const;
 
 export const STATE_MANAGEMENT_SUBTYPES = {
@@ -183,6 +189,9 @@ export const SUBTYPE_TO_CATEGORY: Record<TaskSubType, TaskCategory> = {
   "deselect-all-nodes": "user-interaction",
   "viewport-change": "user-interaction",
   "node-drag-drop": "user-interaction",
+  "select-node": "user-interaction",
+  "pin-node": "user-interaction",
+  "hide-node": "user-interaction",
   
   // State Management
   "save-state": "snapshotting",
@@ -242,6 +251,9 @@ export const SUBTYPE_DEFAULT_PRIORITIES: Record<TaskSubType, number> = {
   "deselect-all-nodes": 70,
   "viewport-change": 50, // Lower priority, can be throttled
   "node-drag-drop": 80,
+  "select-node": 99,
+  "pin-node": 95,
+  "hide-node": 90,
   
   // State Management (Critical for data integrity)
   "save-state": 90,

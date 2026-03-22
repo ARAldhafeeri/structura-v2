@@ -15,6 +15,10 @@
     "Visualization"
   ],
   "activationEvents": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ARAldhafeeri/structura-v2.git"
+  },
   "pricing": "Free",
   "main": "./dist/extension.js",
   "contributes": {

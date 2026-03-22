@@ -1,5 +1,5 @@
 import { createTaskKeyForPriorityQueueHandlerRegistry, type PriorityTask, type TaskCategory } from "../contract/PriorityTaskQueue.js";
-import type { ITaskProcessor, ITaskProcessorRegistry, TaskProcessorHandler, TaskRegistryMap } from "../contract/TaskProcessor.js";
+import type { IProcessorContext, ITaskProcessor, ITaskProcessorRegistry, TaskProcessorHandler, TaskRegistryMap } from "../contract/TaskProcessor.js";
 
 export class TaskProcessorRegistry implements ITaskProcessorRegistry {
 
@@ -43,28 +43,26 @@ export class TaskProcessorRegistry implements ITaskProcessorRegistry {
 }
 
 export class TaskProcessor implements ITaskProcessor {
-    constructor(public registry: TaskProcessorRegistry){
+    /**
+     * ctx is the single shared runtime context injected once at startup.
+     * Every handler receives it so that graph / cache / session mutations
+     * flow exclusively through queue → handler → ctx.graph — never from
+     * outside code calling state objects directly.
+     */
+    constructor(public registry: TaskProcessorRegistry, public ctx?: IProcessorContext){
         this.registry = registry;
     }
 
     async process(task: PriorityTask): Promise<boolean> {
         const processor = this.registry.get(task);
 
-        
-        /**
-         * There is no processor for given task type
-         */
         if(!processor){
-            console.warn(`${task.type, task.subType} has no task processor registered!`)
+            console.warn(`${task.type}:${task.subType} has no task processor registered!`);
             return false;
-        };
+        }
 
-        /**
-         * Process the task
-         */
-        const output = await processor(task);
+        const output = await processor(task, this.ctx);
 
-        // output failed return false to notify the next layer
         if(!output) {
             return false;
         }

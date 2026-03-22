@@ -1,10 +1,33 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
-import { type  GraphData } from './graphGenerator.js';
+import { createTask, type PriorityTask, type TaskSubType } from './contract/PriorityTaskQueue.js';
+import { type GraphData } from './graphGenerator.js';
+
+/** Maps webview keyboard action names to PriorityTaskQueue subTypes. */
+const ACTION_TO_SUBTYPE: Record<string, TaskSubType> = {
+  'select-node':       'select-node',
+  'expand-node':       'expand-node',
+  'collapse-node':     'collapse-node',
+  'pin-node':          'pin-node',
+  'hide-node':         'hide-node',
+  'deselect-all-nodes':'deselect-all-nodes',
+  'undo':              'undo',
+  'redo':              'redo',
+};
 
 export class GraphPanel {
   private panel: vscode.WebviewPanel | undefined;
+  private onEnqueue?: (task: PriorityTask) => void;
 
-  constructor(private extensionUri: vscode.Uri) {}
+  constructor(private extensionUri: vscode.Uri, onEnqueue?: (task: PriorityTask) => void) {
+    this.onEnqueue = onEnqueue;
+  }
+
+  /** Push a message directly into the webview (e.g. graph state updates from handlers). */
+  postToWebview(message: unknown): void {
+    this.panel?.webview.postMessage(message);
+  }
 
   show(graphData: GraphData): void {
     if (this.panel) {
@@ -34,12 +57,21 @@ export class GraphPanel {
             case 'refresh':
               vscode.commands.executeCommand('structura.refreshGraph');
               break;
+            case 'keyboard':
+              this.handleKeyboardMessage(message);
+              break;
           }
         }
       );
     }
 
     this.panel.webview.html = this.getWebviewContent(graphData);
+  }
+
+  private handleKeyboardMessage(message: { action: string; [key: string]: unknown }): void {
+    const subType = ACTION_TO_SUBTYPE[message.action];
+    if (!subType || !this.onEnqueue) { return; }
+    this.onEnqueue(createTask(subType, message));
   }
 
   private async openFile(relativePath: string, line: number): Promise<void> {
@@ -67,6 +99,17 @@ export class GraphPanel {
   }
 
   private getWebviewContent(graphData: GraphData): string {
+    const htmlPath = path.join(this.extensionUri.fsPath, 'src', 'index.html');
+    let html = fs.readFileSync(htmlPath, 'utf8');
+
+    // Inject initial graph data so index.html can populate the graph on load.
+    const injection = `<script>window.__STRACTURA_INITIAL_DATA__ = ${JSON.stringify(graphData)};</script>`;
+    html = html.replace('<script>', `${injection}\n<script>`);
+    return html;
+  }
+
+  // Legacy inline HTML kept as fallback (not currently used).
+  private _legacyGetWebviewContent(graphData: GraphData): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

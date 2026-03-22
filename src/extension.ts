@@ -1,7 +1,21 @@
 import * as vscode from 'vscode';
+import { createTask } from './contract/PriorityTaskQueue.js';
 import { GraphGenerator } from './graphGenerator.js';
 import { GraphPanel } from './graphPanel.js';
-import { baseDir, config, ignorePatterns,  } from './config.js';
+import { baseDir, config, ignorePatterns } from './config.js';
+import { TaskProcessor, TaskProcessorRegistry } from './core/TaskProcessor.js';
+import {
+  onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onCollapseNode,
+  onFileChange, onBatchProcessFiles, onNodeClick, onNodeDoubleClick, onNodeHover,
+  onActiveFileChanged, onToggleGraph, onOpenFileFromNode, onExpandSelectedNode,
+  onDeselectAllNodes, onViewportChange, onNodeDragDrop, onSelectNode, onPinNode, onHideNode,
+  onSaveState, onLoadState, onCreateSnapshot, onRestoreSnapshot, onUndo, onRedo,
+  onUpdateCache, onClearExpiredCache, onInvalidateCache, onBuildSemanticIndex,
+  onUpdateNodeIndex, onRemoveNodeFromIndex, onSemanticSearch, onSearchSuggestions,
+  onClearSemanticIndex, onGarbageCollection, onCollectAnalytics, onSessionLogging,
+  onPrefetchFiles, onSendGraphToWebview, onHighlightNodes, onUpdateLayout,
+  onUpdateSettings, onLoadSettings,
+} from './core/processors/index.js';
 
 /**
  * Graph panel where the code graph will be displayed.
@@ -16,8 +30,68 @@ let graphPanel: GraphPanel | undefined;
  */
 let statusBarItem: vscode.StatusBarItem;
 
+function buildProcessor(): TaskProcessor {
+  const registry = new TaskProcessorRegistry(new Map());
+  const pairs: [Parameters<typeof registry.add>[0], Parameters<typeof registry.add>[1]][] = [];
+
+  // Helper to register without needing a full PriorityTask object for the key.
+  function reg(type: string, subType: string, handler: Parameters<typeof registry.add>[1]) {
+    const fakeTask = { id: '', type, subType, data: null, priority: 0, subPriority: 0, createdAt: 0 };
+    registry.add(fakeTask, handler);
+  }
+
+  reg('graph-construction',   'initialize-graph',       onInitializeGraph);
+  reg('graph-construction',   'build-initial-graph',    onBuildInitialGraph);
+  reg('graph-construction',   'parse-file',             onParseFile);
+  reg('graph-construction',   'expand-node',            onExpandNode);
+  reg('graph-construction',   'collapse-node',          onCollapseNode);
+  reg('graph-construction',   'file-change',            onFileChange);
+  reg('graph-construction',   'batch-process-files',    onBatchProcessFiles);
+  reg('user-interaction',     'node-click',             onNodeClick);
+  reg('user-interaction',     'node-double-click',      onNodeDoubleClick);
+  reg('user-interaction',     'node-hover',             onNodeHover);
+  reg('user-interaction',     'active-file-changed',    onActiveFileChanged);
+  reg('user-interaction',     'toggle-graph',           onToggleGraph);
+  reg('user-interaction',     'open-file-from-node',    onOpenFileFromNode);
+  reg('user-interaction',     'expand-selected-node',   onExpandSelectedNode);
+  reg('user-interaction',     'deselect-all-nodes',     onDeselectAllNodes);
+  reg('user-interaction',     'viewport-change',        onViewportChange);
+  reg('user-interaction',     'node-drag-drop',         onNodeDragDrop);
+  reg('user-interaction',     'select-node',            onSelectNode);
+  reg('user-interaction',     'pin-node',               onPinNode);
+  reg('user-interaction',     'hide-node',              onHideNode);
+  reg('snapshotting',         'save-state',             onSaveState);
+  reg('snapshotting',         'load-state',             onLoadState);
+  reg('snapshotting',         'create-snapshot',        onCreateSnapshot);
+  reg('snapshotting',         'restore-snapshot',       onRestoreSnapshot);
+  reg('snapshotting',         'undo',                   onUndo);
+  reg('snapshotting',         'redo',                   onRedo);
+  reg('snapshotting',         'update-cache',           onUpdateCache);
+  reg('snapshotting',         'clear-expired-cache',    onClearExpiredCache);
+  reg('snapshotting',         'invalidate-cache',       onInvalidateCache);
+  reg('local-indexing',       'build-semantic-index',   onBuildSemanticIndex);
+  reg('local-indexing',       'update-node-index',      onUpdateNodeIndex);
+  reg('local-indexing',       'remove-node-from-index', onRemoveNodeFromIndex);
+  reg('local-indexing',       'semantic-search',        onSemanticSearch);
+  reg('local-indexing',       'search-suggestions',     onSearchSuggestions);
+  reg('local-indexing',       'clear-semantic-index',   onClearSemanticIndex);
+  reg('background-processing','garbage-collection',     onGarbageCollection);
+  reg('background-processing','collect-analytics',      onCollectAnalytics);
+  reg('background-processing','session-logging',        onSessionLogging);
+  reg('background-processing','prefetch-files',         onPrefetchFiles);
+  reg('other',                'send-graph-to-webview',  onSendGraphToWebview);
+  reg('other',                'highlight-nodes',        onHighlightNodes);
+  reg('other',                'update-layout',          onUpdateLayout);
+  reg('other',                'update-settings',        onUpdateSettings);
+  reg('other',                'load-settings',          onLoadSettings);
+
+  return new TaskProcessor(registry);
+}
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('Structura extension activated');
+
+  const processor = buildProcessor();
 
   // Create status bar item
   statusBarItem = vscode.window.createStatusBarItem(
@@ -53,7 +127,9 @@ export function activate(context: vscode.ExtensionContext) {
             const graphData = await generator.generate();
 
             if (!graphPanel) {
-              graphPanel = new GraphPanel(context.extensionUri);
+              graphPanel = new GraphPanel(context.extensionUri, (task) => {
+                processor.process(task);
+              });
             }
             graphPanel.show(graphData);
           

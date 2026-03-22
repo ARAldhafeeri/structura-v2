@@ -493,7 +493,7 @@ structura/
 
 ### Prerequisites
 
-- Node.js 16+ and npm
+- Node.js v25.2.1 and npm
 - VS Code 1.80+
 
 ### Setup

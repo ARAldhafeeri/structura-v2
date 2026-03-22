@@ -106,6 +106,21 @@ export const onNodeDragDrop: TaskProcessorHandler = createHandler(async (task, c
   // TODO: Update node positions, save layout
 });
 
+export const onSelectNode: TaskProcessorHandler = createHandler(async (task, ctx) => {
+  console.log('Handler: onSelectNode', task.data);
+  // TODO: Update session.selectedNodeId, push selection state back to webview
+});
+
+export const onPinNode: TaskProcessorHandler = createHandler(async (task, ctx) => {
+  console.log('Handler: onPinNode', task.data);
+  // TODO: Toggle pinned flag on node in session, persist layout position
+});
+
+export const onHideNode: TaskProcessorHandler = createHandler(async (task, ctx) => {
+  console.log('Handler: onHideNode', task.data);
+  // TODO: Mark node hidden in session, remove from webview visible set
+});
+
 // ============================================================================
 // STATE MANAGEMENT HANDLERS (Priority: 20)
 // ============================================================================

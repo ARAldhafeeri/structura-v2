@@ -59,13 +59,18 @@ export interface ITaskProcessorRegistry {
 /**
  * TaskProcessor the main class which elegantly going to be injected into the priority task queue
  * to handle varity of tasks with single method:
- * - process : will get the type of the task and the associated PriorityTask data 
+ * - process : will get the type of the task and the associated PriorityTask data
  * as well it's designed to fail gracefully by returning a boolean of true or false.
- * true: means the processor reported successfuly processing 
+ * true: means the processor reported successfuly processing
  * false: means the processor reported failure within it's scope
  * This allow for failure handling at multiple layer as well future logic of retries.
+ *
+ * ctx is injected at construction time and forwarded to every handler.
+ * It is the ONLY sanctioned way for handlers to mutate graph/cache/session state —
+ * nothing outside a handler should touch those objects directly.
  */
 export interface ITaskProcessor {
     registry: ITaskProcessorRegistry;
+    ctx?: IProcessorContext;
     process(task: PriorityTask): Promise<boolean>;
 }

@@ -52,6 +52,12 @@ export const walkScoped = (
 ): void => {
   if (!node || typeof node !== "object") return;
 
+  // OXC parser emits flat { start, end } on nodes instead of a nested span object.
+  // Normalise here once so every visitor can safely read node.span.
+  if (typeof node.start === "number" && node.span === undefined) {
+    node.span = { start: node.start, end: node.end };
+  }
+
   if (visitor[node.type]) {
     visitor[node.type](node, scopeStack);
   }

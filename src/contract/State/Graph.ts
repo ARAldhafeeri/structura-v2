@@ -68,4 +68,16 @@ export interface IGraphState {
    * @param predicate 
    */
   collapseNode(predicate: (edge: SemanticEdge) => boolean): SemanticEdge[];
+  
+
+  /** 
+   * Wipe everything — used on workspace close or full refresh. 
+   * */
+
+  clear(): void;
+
+  /**
+   * Simple stats method return just the number of nodes and edges but extendable 
+   */
+  getStats(): { nodes: number; edges: number } 
 }

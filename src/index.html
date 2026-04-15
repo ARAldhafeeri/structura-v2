@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Graph</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      overflow: hidden;
+    }
+
+    #container { display: flex; flex-direction: column; height: 100vh; }
+
+    #header {
+      background: #252526;
+      border-bottom: 1px solid #3e3e42;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #header h1 { font-size: 16px; font-weight: 600; color: #cccccc; }
+
+    #stats { display: flex; gap: 24px; font-size: 13px; }
+
+    .stat-item { display: flex; flex-direction: column; align-items: center; }
+
+    .stat-value { font-size: 18px; font-weight: 600; color: #4fc3f7; }
+
+    .stat-label { font-size: 11px; color: #858585; margin-top: 2px; }
+
+    #controls { display: flex; gap: 8px; }
+
+    button {
+      background: #3c3c3c;
+      border: 1px solid #555555;
+      color: #cccccc;
+      padding: 6px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: #4c4c4c; border-color: #666666; }
+    button:active { background: #2c2c2c; }
+
+    #main { flex: 1; position: relative; overflow: hidden; }
+
+    #cy { width: 100%; height: 100%; background: #1e1e1e; }
+
+    #legend {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(37, 37, 38, 0.95);
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 12px;
+      z-index: 1000;
+    }
+
+    .legend-title { font-weight: 600; margin-bottom: 8px; color: #cccccc; }
+
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+
+    .legend-color { width: 12px; height: 12px; border-radius: 50%; }
+
+    #info {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(37, 37, 38, 0.95);
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 12px;
+      max-width: 300px;
+      z-index: 1000;
+      display: none;
+    }
+
+    #info.visible { display: block; }
+
+    .info-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #4fc3f7; }
+
+    .info-row { margin-bottom: 6px; display: flex; }
+
+    .info-label { color: #858585; min-width: 60px; }
+
+    .info-value { color: #cccccc; word-break: break-all; }
+
+    .info-button { margin-top: 8px; width: 100%; }
+
+    #instructions {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(37, 37, 38, 0.95);
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #858585;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <h1>Code Structure Graph</h1>
+      <div id="stats">
+        <div class="stat-item">
+          <div class="stat-value" id="nodeCount">0</div>
+          <div class="stat-label">Files</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="edgeCount">0</div>
+          <div class="stat-label">Imports</div>
+        </div>
+      </div>
+      <div id="controls">
+        <button onclick="fitGraph()">Fit All</button>
+        <button onclick="refresh()">Refresh</button>
+      </div>
+    </div>
+    <div id="main">
+      <div id="legend">
+        <div class="legend-title">Node Types</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #4fc3f7;"></div>
+          <span>File</span>
+        </div>
+      </div>
+      <div id="info"></div>
+      <div id="instructions">
+        Click to select &bull; Double-click to open &bull; Drag to pan &bull; Scroll to zoom
+        &bull; <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd> navigate &bull; <kbd>e</kbd> expand &bull; <kbd>o</kbd> open &bull; <kbd>f</kbd> fit &bull; <kbd>q</kbd> clear
+      </div>
+      <div id="cy"></div>
+    </div>
+  </div>
+
+<script>
+  const vscode = acquireVsCodeApi();
+
+  // Initial data is injected by the extension before this script runs.
+  // Falls back to empty graph when the panel is opened before data is ready.
+  const graphData = window.__STRACTURA_INITIAL_DATA__ || { nodes: [], edges: [] };
+
+  let cy = null;
+  let selectedNode = null;
+
+  function initGraph(data) {
+    const elements = [
+      ...data.nodes.map(node => ({
+        data: { id: node.id, label: node.label, type: node.type, path: node.path, line: node.line || 1 }
+      })),
+      ...data.edges.map((edge, i) => ({
+        data: { id: 'e' + i, source: edge.source, target: edge.target, type: edge.type }
+      }))
+    ];
+
+    if (cy) {
+      cy.elements().remove();
+      cy.add(elements);
+      cy.layout({ name: 'cose', animate: false, nodeRepulsion: 8000, idealEdgeLength: 100 }).run();
+    } else {
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': '#4fc3f7',
+              'label': 'data(label)',
+              'color': '#ffffff',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'font-size': '10px',
+              'width': '30px',
+              'height': '30px',
+              'border-width': '2px',
+              'border-color': '#1e1e1e',
+              'text-outline-width': '2px',
+              'text-outline-color': '#1e1e1e'
+            }
+          },
+          {
+            selector: 'node:selected',
+            style: { 'background-color': '#ff9800', 'border-color': '#ff5722', 'border-width': '3px' }
+          },
+          {
+            selector: 'node.highlighted',
+            style: { 'background-color': '#9c27b0', 'border-color': '#e91e63', 'border-width': '3px' }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': '#555555',
+              'target-arrow-color': '#555555',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'arrow-scale': 1
+            }
+          },
+          {
+            selector: 'edge.highlighted',
+            style: { 'line-color': '#9c27b0', 'target-arrow-color': '#9c27b0', 'width': 3 }
+          }
+        ],
+        layout: {
+          name: 'cose',
+          animate: false,
+          nodeRepulsion: 8000,
+          idealEdgeLength: 100,
+          edgeElasticity: 100
+        }
+      });
+
+      cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const nodeData = node.data();
+        cy.elements().removeClass('highlighted');
+        node.neighborhood().add(node).addClass('highlighted');
+        selectedNode = nodeData;
+        showInfo(nodeData);
+        vscode.postMessage({ command: 'keyboard', action: 'select-node', nodeId: nodeData.id });
+      });
+
+      cy.on('dbltap', 'node', function(evt) {
+        const nodeData = evt.target.data();
+        openFile(nodeData.path, nodeData.line);
+      });
+
+      cy.on('tap', function(evt) {
+        if (evt.target === cy) {
+          cy.elements().removeClass('highlighted');
+          hideInfo();
+          selectedNode = null;
+          vscode.postMessage({ command: 'keyboard', action: 'deselect-all-nodes' });
+        }
+      });
+    }
+
+    document.getElementById('nodeCount').textContent = data.nodes.length;
+    document.getElementById('edgeCount').textContent = data.edges.length;
+    setTimeout(() => fitGraph(), 100);
+  }
+
+  // Listen for messages from the extension (e.g. live graph updates).
+  window.addEventListener('message', event => {
+    const msg = event.data;
+    switch (msg.command) {
+      case 'graphData':
+        initGraph(msg);
+        break;
+      case 'highlight':
+        if (cy) {
+          cy.elements().removeClass('highlighted');
+          (msg.nodeIds || []).forEach(id => {
+            const n = cy.getElementById(id);
+            if (n) n.addClass('highlighted');
+          });
+        }
+        break;
+      case 'updateLayout':
+        if (cy) cy.layout({ name: msg.layout || 'cose', animate: true }).run();
+        break;
+      case 'nodesAdded':
+        if (cy && msg.nodes) {
+          cy.add(msg.nodes.map(n => ({ data: { id: n.id, label: n.name, type: n.intent, path: n.id, line: n.location?.start?.line || 1 } })));
+          cy.layout({ name: 'cose', animate: true, fit: false }).run();
+        }
+        break;
+      case 'edgesRemoved':
+        if (cy && msg.edges) {
+          msg.edges.forEach(e => { const el = cy.edges(`[source="${e.from}"][target="${e.to}"]`); if (el) el.remove(); });
+        }
+        break;
+    }
+  });
+
+  // ── keyboard helpers ────────────────────────────────────────────────────────
+
+  function selectGraphNode(node) {
+    cy.elements().removeClass('highlighted');
+    node.neighborhood().add(node).addClass('highlighted');
+    selectedNode = node.data();
+    showInfo(selectedNode);
+    cy.animate({ center: { eles: node }, duration: 150 });
+    vscode.postMessage({ command: 'keyboard', action: 'select-node', nodeId: selectedNode.id });
+  }
+
+  function navigateNode(direction) {
+    if (!cy) return;
+    const nodes = cy.nodes();
+    if (nodes.empty()) return;
+    // Nothing selected yet — pick the first node.
+    if (!selectedNode) { selectGraphNode(nodes.first()); return; }
+
+    const current = cy.getElementById(selectedNode.id);
+    if (current.empty()) return;
+    const pos = current.position();
+
+    let best = null;
+    let bestScore = Infinity;
+    nodes.not(current).forEach(node => {
+      const np = node.position();
+      const dx = np.x - pos.x;
+      const dy = np.y - pos.y;
+      let score = Infinity;
+      if (direction === 'right' && dx > 0) score = dx + Math.abs(dy) * 2;
+      if (direction === 'left'  && dx < 0) score = -dx + Math.abs(dy) * 2;
+      if (direction === 'down'  && dy > 0) score = dy + Math.abs(dx) * 2;
+      if (direction === 'up'    && dy < 0) score = -dy + Math.abs(dx) * 2;
+      if (score < bestScore) { bestScore = score; best = node; }
+    });
+    if (best) selectGraphNode(best);
+  }
+
+  // ── keyboard shortcuts ───────────────────────────────────────────────────────
+  //
+  //  Navigation    h/j/k/l     Move focus left / down / up / right
+  //  Node actions  e           Expand selected node
+  //                c           Collapse selected node
+  //                o           Open selected file in editor
+  //                p           Pin selected node
+  //                d           Hide selected node
+  //  Graph         r           Refresh graph
+  //                f           Fit graph to screen
+  //                [           Undo
+  //                ]           Redo
+  //  Selection     Esc / q     Clear selection
+  //  Undo/Redo     Ctrl+Z / Ctrl+Shift+Z
+
+  document.addEventListener('keydown', e => {
+    // Ignore if user is typing inside an input/textarea.
+    if (e.target !== document.body) return;
+
+    const ctrl = e.ctrlKey || e.metaKey;
+
+    // ── undo / redo (with ctrl) ─────────────────────────────────────────────
+    if (ctrl && !e.shiftKey && e.key === 'z') {
+      e.preventDefault();
+      vscode.postMessage({ command: 'keyboard', action: 'undo' });
+      return;
+    }
+    if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      vscode.postMessage({ command: 'keyboard', action: 'redo' });
+      return;
+    }
+    // Ignore remaining ctrl/meta combos — let VS Code handle them.
+    if (ctrl) return;
+
+    switch (e.key) {
+      // navigation (vim hjkl)
+      case 'h': navigateNode('left');  break;
+      case 'j': navigateNode('down');  break;
+      case 'k': navigateNode('up');    break;
+      case 'l': navigateNode('right'); break;
+
+      // node actions
+      case 'e':
+        if (selectedNode) vscode.postMessage({ command: 'keyboard', action: 'expand-node',   nodeId: selectedNode.id });
+        break;
+      case 'c':
+        if (selectedNode) vscode.postMessage({ command: 'keyboard', action: 'collapse-node', nodeId: selectedNode.id });
+        break;
+      case 'o':
+        if (selectedNode) openFile(selectedNode.path, selectedNode.line);
+        break;
+      case 'p':
+        if (selectedNode) vscode.postMessage({ command: 'keyboard', action: 'pin-node',  nodeId: selectedNode.id });
+        break;
+      case 'd':
+        if (selectedNode) vscode.postMessage({ command: 'keyboard', action: 'hide-node', nodeId: selectedNode.id });
+        break;
+
+      // graph controls
+      case 'r': vscode.postMessage({ command: 'refresh' }); break;
+      case 'f': fitGraph(); break;
+      case '[': vscode.postMessage({ command: 'keyboard', action: 'undo' }); break;
+      case ']': vscode.postMessage({ command: 'keyboard', action: 'redo' }); break;
+
+      // clear selection
+      case 'Escape':
+      case 'q':
+        if (cy) cy.elements().removeClass('highlighted');
+        hideInfo();
+        selectedNode = null;
+        vscode.postMessage({ command: 'keyboard', action: 'deselect-all-nodes' });
+        break;
+    }
+  });
+
+  function showInfo(nodeData) {
+    const info = document.getElementById('info');
+    info.innerHTML = `
+      <div class="info-title">${nodeData.label}</div>
+      <div class="info-row"><span class="info-label">Type:</span><span class="info-value">${nodeData.type}</span></div>
+      <div class="info-row"><span class="info-label">Path:</span><span class="info-value">${nodeData.path}</span></div>
+      <div class="info-row"><span class="info-label">Line:</span><span class="info-value">${nodeData.line}</span></div>
+      <button class="info-button" onclick="openFile('${nodeData.path}', ${nodeData.line})">Open in Editor</button>
+    `;
+    info.classList.add('visible');
+  }
+
+  function hideInfo() {
+    document.getElementById('info').classList.remove('visible');
+  }
+
+  function fitGraph() {
+    cy && cy.fit(null, 50);
+  }
+
+  function openFile(path, line) {
+    vscode.postMessage({ command: 'openFile', path, line });
+  }
+
+  function refresh() {
+    vscode.postMessage({ command: 'refresh' });
+  }
+
+  // Boot with initial data.
+  initGraph(graphData);
+</script>
+</body>
+</html>

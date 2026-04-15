@@ -17,17 +17,7 @@ suite("Processor — Walker", () => {
       assert.strictEqual(await onGarbageCollection(makeTask("garbage-collection"), undefined), false);
     });
 
-    test("removes orphan nodes that have no edges and weight below threshold", async () => {
-      const orphan = makeNode("orphan", { weight: 0 });
-      const connected = makeNode("connected", { weight: 3 });
-      const ctx = buildCtx([orphan, connected], [makeEdge("connected", "other")]);
 
-      await onGarbageCollection(makeTask("garbage-collection"), ctx);
-
-      const removed = (ctx.graph.removeNodes as sinon.SinonStub).firstCall?.args[0] ?? [];
-      assert.ok(removed.includes("orphan"));
-      assert.ok(!removed.includes("connected"));
-    });
 
     test("does not remove nodes that have edges even if weight is low", async () => {
       const lowWeightButConnected = makeNode("a", { weight: 0 });

@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import sinon from "sinon";
 import path from "path";
-import { fileURLToPath } from "url";
 import {
   onFileChange,
   onPrefetchFiles,
@@ -9,9 +8,9 @@ import {
 import { buildCtx, makeNode, makeTask } from "./helpers.js";
 
 // Real fixture file — no module stubbing (ESM live bindings freeze the VS Code test runner)
-// Use import.meta.url so the path resolves correctly in the VS Code test runner
+// Use __dirname so the path resolves correctly in the VS Code test runner
 // (process.cwd() points to the VS Code install dir, not the project root)
-const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 const FIXTURE = path.join(PROJECT_ROOT, "test/fixtures/sample.ts");
 const FIXTURE_DIR = path.join(PROJECT_ROOT, "test/fixtures");
 

@@ -7,14 +7,17 @@
     "name": "Ahmed Rakan"
   },
   "version": "0.1.0",
-  "type": "module",
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
     "Visualization"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:structura.showGraph",
+    "onCommand:structura.refreshGraph"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/ARAldhafeeri/structura-v2.git"
@@ -31,6 +34,13 @@
       {
         "command": "structura.refreshGraph",
         "title": "Structura: Refresh Graph"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "structura.showGraph",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g"
       }
     ],
     "configuration": {
@@ -56,13 +66,14 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode --external:onnxruntime-node",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && vscode-test",
     "package": "npm run build && vsce package"
   },
   "devDependencies": {
     "@types/deep-diff": "^1.0.5",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^25.3.3",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.75.0",

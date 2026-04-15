@@ -10,12 +10,17 @@
 </p>
 
 <p align="center">
+  <a href="./QUICKSTART.md"><strong>⚡ Quick Start</strong></a> •
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#usage">Usage</a> •
   <a href="#keyboard-shortcuts">Shortcuts</a> •
   <a href="#contributing">Contributing</a>
 </p>
+
+---
+
+## New here? → [Quick Start Guide](./QUICKSTART.md) — from install to exploring your codebase in 2 minutes.
 
 ---
 
@@ -53,14 +58,14 @@ This revolutionary approach not only helps humans understand code faster but als
 
 ### 2. **Keyboard-First Navigation**
 
-Inspired by Neovim, Structura provides just enough keyboard shortcuts to explore code graphically without leaving the keyboard:
+Inspired by Neovim, Structura uses a single VS Code shortcut to open the graph, then pure single-key Vim-style bindings once the panel is focused:
 
-- `Ctrl+S+O` - Open current file as graph node
-- `Ctrl+S+E+[1-9]` - Expand graph to depth 1-9
-- `Ctrl+S+F` - Filter graph interactively
-- `Ctrl+S+I/K/J/L` - Navigate nodes (up/down/left/right)
-- `Ctrl+S+K+E` - Expand selected node
-- `Ctrl+S+B/F` - Time travel (back/forward in history)
+- `Ctrl+Alt+G` (`Cmd+Alt+G` on Mac) - Open/focus graph panel
+- `h / j / k / l` - Navigate nodes (left / down / up / right)
+- `e` - Expand selected node
+- `o` - Open selected file in editor
+- `[ / ]` - Undo / redo graph history
+- `q` / `Esc` - Clear selection
 
 All shortcuts are complemented by intuitive right-click context menus.
 
@@ -150,7 +155,7 @@ code --install-extension structura-0.1.0.vsix
 Structura: Show Code Graph
 ```
 
-**Method 3:** Use keyboard shortcut: `Ctrl+Shift+G`
+**Method 3:** Use keyboard shortcut: `Ctrl+Alt+G` (Mac: `Cmd+Alt+G`)
 
 ### Basic Navigation
 
@@ -161,9 +166,16 @@ Structura: Show Code Graph
 - **Scroll** → Zoom in/out
 
 #### Keyboard Controls
-- **X** or **Esc** → Clear selection
-- **O** → Open selected file
-- **Arrow keys** → Navigate between nodes *(when enabled)*
+- **h / j / k / l** → Navigate nodes (left / down / up / right)
+- **e** → Expand selected node
+- **c** → Collapse selected node
+- **o** → Open selected file in editor
+- **p** → Pin selected node
+- **d** → Hide selected node
+- **r** → Refresh graph
+- **f** → Fit graph to screen
+- **[ / ]** → Undo / redo
+- **Esc** or **q** → Clear selection
 
 ### Graph Exploration Workflow
 
@@ -175,14 +187,10 @@ Structura: Show Code Graph
 
 ### Advanced Features
 
-#### Time Travel
-- `Ctrl+S+B` - Go back in graph history
-- `Ctrl+S+F` - Go forward in graph history
-
-#### Expansion Control
-- `Ctrl+S+E+3` - Expand graph 3 levels deep
-- `Ctrl+S+E+5` - Expand graph 5 levels deep
-- Configure default depth in settings
+#### History Navigation
+- `[` - Go back in graph history (undo)
+- `]` - Go forward in graph history (redo)
+- `Ctrl+Z` / `Ctrl+Shift+Z` - Undo / redo
 
 #### Refreshing
 Click the **Refresh** button in the graph header to regenerate after code changes, or enable auto-refresh in settings.
@@ -243,37 +251,40 @@ Automatically refresh graph when files change (default: true)
 
 ## Keyboard Shortcuts
 
-### Graph Operations
+### VS Code (global)
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Shift+G` | Toggle graph panel |
-| `Ctrl+S+O` | Open current file in graph |
-| `Ctrl+S+E+[1-9]` | Expand to depth 1-9 |
-| `Ctrl+S+F` | Focus filter input |
-| `Ctrl+S+K+E` | Expand selected node |
+| `Ctrl+Alt+G` / `Cmd+Alt+G` | Open / focus the graph panel |
 
-### Navigation
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+S+I` | Navigate up |
-| `Ctrl+S+K` | Navigate down |
-| `Ctrl+S+J` | Navigate left |
-| `Ctrl+S+L` | Navigate right |
-| `O` | Open selected node's file |
-| `X` / `Esc` | Clear selection |
+### In-graph — Navigation
+| Key | Action |
+|-----|--------|
+| `h` | Move focus left |
+| `j` | Move focus down |
+| `k` | Move focus up |
+| `l` | Move focus right |
 
-### History
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+S+B` | Go back in history |
-| `Ctrl+S+F` | Go forward in history |
+### In-graph — Node Actions
+| Key | Action |
+|-----|--------|
+| `e` | Expand selected node |
+| `c` | Collapse selected node |
+| `o` | Open selected file in editor |
+| `p` | Pin selected node |
+| `d` | Hide selected node |
 
-### Documentation *(Planned)*
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+S+O+P` | Open documentation panel |
+### In-graph — Graph Controls
+| Key | Action |
+|-----|--------|
+| `r` | Refresh graph |
+| `f` | Fit graph to screen |
+| `[` | Undo |
+| `]` | Redo |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Shift+Z` | Redo |
+| `Esc` / `q` | Clear selection |
 
-> **Note:** All keyboard shortcuts are customizable via VS Code's keyboard settings.
+> **Note:** In-graph shortcuts are single keys — no modifier needed. They activate when the graph panel has focus. All VS Code shortcuts can be rebound via **Preferences → Keyboard Shortcuts**.
 
 ---
 
@@ -706,7 +717,7 @@ Special thanks to all contributors who make Structura better every day.
 </p>
 
 <p align="center">
-  <a href="#installation">Get Started</a> •
+  <a href="./QUICKSTART.md">Get Started</a> •
   <a href="https://github.com/yourusername/structura">Star on GitHub</a> •
   <a href="https://twitter.com/StructuraDev">Follow Updates</a>
 </p>

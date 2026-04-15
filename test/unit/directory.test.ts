@@ -3,10 +3,6 @@ import { getDirectoryTree } from "../../src/core/Directory.js";
 import { isDirectoryDepthReached } from "../../src/uitlities/directory.js";
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 suite("Tests related to fetching directory trees", () => {
     

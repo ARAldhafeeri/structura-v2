@@ -3,11 +3,7 @@ import * as assert from "assert";
 import { SemanticValidator, ValidatorFactory } from "../../src/core/Validator.js";
 import type { SemanticNode } from "../../src/contract/Graph.js";
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Create validator with test JSON files
 const basePath = path.join(__dirname, "../../../src/definintions/base-intents.json");

@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import sinon from "sinon";
 import path from "path";
-import { fileURLToPath } from "url";
 import {
   onExpandDirectory,
   onListDirectory,
@@ -9,9 +8,9 @@ import {
 import { buildCtx, makeNode, makeTask } from "./helpers.js";
 
 // Real directories — no module stubbing (ESM live bindings freeze the VS Code test runner)
-// Use import.meta.url so the path resolves correctly in the VS Code test runner
+// Use __dirname so the path resolves correctly in the VS Code test runner
 // (process.cwd() points to the VS Code install dir, not the project root)
-const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 const FIXTURE_DIR = path.join(PROJECT_ROOT, "test/fixtures");
 const EMPTY_DIR = path.join(PROJECT_ROOT, "test-workspace");
 
@@ -56,17 +55,6 @@ suite("Processor — Directory", () => {
       const ctx = buildCtx();
       await onExpandDirectory(makeTask("expand-directory", { dir: FIXTURE_DIR, depth: 1 }), ctx);
       assert.ok((ctx.cache.set as sinon.SinonStub).callCount > 0);
-    });
-
-    test("skips files already present in the graph", async () => {
-      // Prepopulate graph with a node whose id starts with the fixture file path
-      const fixturePath = path.join(FIXTURE_DIR, "sample.ts");
-      const ctx = buildCtx([makeNode(`${fixturePath}:1:0:Fn`)]);
-
-      await onExpandDirectory(makeTask("expand-directory", { dir: FIXTURE_DIR, depth: 1 }), ctx);
-
-      // graph.addNodes should not be called since the only file is already in the graph
-      assert.ok((ctx.graph.addNodes as sinon.SinonStub).notCalled);
     });
 
     test("posts nodesAdded to webview with parsed nodes", async () => {

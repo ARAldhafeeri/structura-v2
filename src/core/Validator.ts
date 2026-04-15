@@ -3,10 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import type { SemanticNode, NodeIntent, Scope, SourceLocation} from '../contract/Graph.js';
 import type { BaseIntentsJson, JavaScriptIntentsJson, ValidationIssue, ValidationReport } from "../contract/Validator.js"
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 // Create validator with test JSON files
 const basePath = path.join(__dirname, "../../../src/definintions/base-intents.json");
 const jsPath = path.join(__dirname, "../../../src/definintions/javascript-intents.json");
@@ -310,7 +306,7 @@ export class SemanticValidator {
     // Search through all categories in astNodeMap
     for (const [category, categoryData] of Object.entries(extension.astNodeMap)) {
       const nodes = categoryData.nodes;
-      if (( typeof nodes === "object") && Object.hasOwn(nodes, nodeType)) {
+      if (( typeof nodes === "object") && Object.prototype.hasOwnProperty.call(nodes, nodeType)) {
         const nodeDef = nodes[nodeType];
         
         // Check if intent matches what the AST node should map to

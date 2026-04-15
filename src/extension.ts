@@ -4,6 +4,8 @@ import { GraphGenerator } from './graphGenerator.js';
 import { GraphPanel } from './graphPanel.js';
 import { baseDir, config, ignorePatterns } from './config.js';
 import { TaskProcessor, TaskProcessorRegistry } from './core/TaskProcessor.js';
+import { buildContext } from './core/buildContext.js';
+import { WebviewPanelController } from './core/WebviewController.js';
 import {
   onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onCollapseNode,
   onFileChange, onBatchProcessFiles, onNodeClick, onNodeDoubleClick, onNodeHover,
@@ -91,7 +93,12 @@ function buildProcessor(): TaskProcessor {
 export function activate(context: vscode.ExtensionContext) {
   console.log('Structura extension activated');
 
+  // Build the shared context first (no webview yet — set lazily on first panel open).
+  const ctx = buildContext(context);
+
   const processor = buildProcessor();
+  // Inject ctx so every handler can read/mutate the live graph and cache.
+  processor.ctx = ctx;
 
   // Create status bar item
   statusBarItem = vscode.window.createStatusBarItem(
@@ -130,6 +137,8 @@ export function activate(context: vscode.ExtensionContext) {
               graphPanel = new GraphPanel(context.extensionUri, (task) => {
                 processor.process(task);
               });
+              // Wire the webview into ctx so processor handlers can post messages.
+              ctx.webview = new WebviewPanelController(graphPanel);
             }
             graphPanel.show(graphData);
           

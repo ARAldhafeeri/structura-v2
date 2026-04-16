@@ -29,10 +29,10 @@ Restart VS Code after installing the `.vsix`.
 **Run without installing (for contributors)**
 
 ```bash
-# Open the repo in VS Code, then press F5.
-# A new Extension Development Host window opens with Structura active.
-code .
-# → press F5
+# Open the repo in VS Code, after installing the extension 
+# you should see stractura in the status bar if not
+# ctrl + shift + p 
+# search for developer : reload window
 ```
 
 ---

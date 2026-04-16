@@ -2,13 +2,15 @@
 *
 
 # Allow necessary files
-!dist/**/*
+!dist/**
 !package.json
 !package-lock.json
 !README.md
 !LICENSE
 
-# Allow node_modules only for production dependencies
-node_modules/**
-!node_modules/vscode
-!node_modules/some-needed-package
+# Webview HTML
+!src/index.html
+
+# oxc-parser native bindings (required at runtime, cannot be bundled by esbuild)
+!node_modules/oxc-parser/**
+!node_modules/@oxc-parser/**

@@ -29,6 +29,10 @@ export interface IProcessorContext {
   editor: vscode.ExtensionContext;
 }
 
+export type IProcessorContextComponent<K extends keyof IProcessorContext = keyof IProcessorContext> = {
+  key: K;
+  value: IProcessorContext[K];
+};
 
 /**
  * Task Processor Handler contract 

@@ -50,42 +50,25 @@ export function buildContext(
   webview?: IProcessorContext["webview"],
 ): IProcessorContext {
 
-  const context : Partial<IProcessorContext> = {};
-  const logError = (component : string, errorMessage: string) => console.log(`Failed to intialiaze ${component} into context Error: ${errorMessage}`)
-   const buildContextGracefully = (components : IProcessorContextComponent[]) => {
-    for(var comp of components) {
-      try {
-        context[comp.key] = comp.value;
-      } catch (e: any) {
-        logError(comp.key, e.msg)
-      }
+  const context: Partial<IProcessorContext> = {};
+  const logError = (component: string, e: unknown) =>
+    console.error(`Structura: failed to initialize "${component}":`, e);
+
+  const tryBuild = (key: IProcessorContextComponent["key"], factory: () => IProcessorContextComponent["value"]) => {
+    try {
+      context[key] = factory();
+    } catch (e) {
+      logError(key, e);
     }
-   }
-
-   const buildSingleComponent = (key: IProcessorContextComponent["key"], value: IProcessorContextComponent["value"] ) => {
-    return  {
-      key,
-      value,
-    }
-   }
-
-  buildContextGracefully([
-    buildSingleComponent("graph", new GraphState()),
-    buildSingleComponent("cache", new CacheState(256, null, null)),
-    buildSingleComponent("session", new SessionState()),
-    buildSingleComponent("semanticIndex", new SemanticIndexState()),
-    buildSingleComponent("settings", new VscodeUserSettings()),
-    buildSingleComponent("editor", editor),
-    buildSingleComponent("webview", webview), 
-
-  ])
-  return {
-    graph: new GraphState(),
-    cache: new CacheState(256, null, null),
-    session: new SessionState(),
-    semanticIndex: new SemanticIndexState(),
-    settings: new VscodeUserSettings(),
-    editor,
-    webview,
   };
+
+  tryBuild("graph",         () => new GraphState());
+  tryBuild("cache",         () => new CacheState(256, null, null));
+  tryBuild("session",       () => new SessionState());
+  tryBuild("semanticIndex", () => new SemanticIndexState());
+  tryBuild("settings",      () => new VscodeUserSettings());
+  tryBuild("editor",        () => editor);
+  tryBuild("webview",       () => webview);
+
+  return context as IProcessorContext;
 }

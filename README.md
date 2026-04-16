@@ -21,7 +21,7 @@
 ---
 
 ## New here? → [Quick Start Guide](./QUICKSTART.md) — from install to exploring your codebase in 2 minutes.
-
+Note: if extension is not working please click `alt+shift+p` then from options search for `Developer: reload window` and click on it
 ---
 
 ## Why Structura?

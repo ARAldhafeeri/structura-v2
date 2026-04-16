@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stractura — Source Graph Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --bg2: #080d1a;
+    --bg3: #0c1221;
+    --panel: #0a0f1e;
+    --border: rgba(0,200,255,0.12);
+    --border2: rgba(0,200,255,0.25);
+    --accent: #00c8ff;
+    --accent2: #7b2fff;
+    --accent3: #00ffb2;
+    --warn: #ff6b35;
+    --text: #c8daf0;
+    --text2: #7a9bbf;
+    --text3: #3d5a7a;
+    --node-def: #00c8ff;
+    --node-call: #7b2fff;
+    --node-import: #00ffb2;
+    --node-export: #ff6b35;
+    --node-type: #f0c040;
+    --node-ref: #a08060;
+    --glow: 0 0 12px rgba(0,200,255,0.4);
+    --glow2: 0 0 20px rgba(0,200,255,0.6);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    height: 44px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+
+  #logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 12px rgba(0,200,255,0.6);
+  }
+
+  #filepath { font-size: 11px; color: var(--text2); flex: 1; }
+  #filepath span { color: var(--accent3); }
+
+  #stats-bar { display: flex; gap: 16px; font-size: 10px; color: var(--text3); }
+  #stats-bar .stat { display: flex; gap: 5px; }
+  #stats-bar .stat .val { color: var(--text2); font-weight: 500; }
+
+  #mode-indicator {
+    font-size: 9px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    font-family: 'Orbitron', monospace;
+    animation: pulse-border 3s ease-in-out infinite;
+    transition: all 0.2s;
+  }
+  #mode-indicator.active {
+    background: rgba(0,200,255,0.1);
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+    animation: none;
+  }
+
+  @keyframes pulse-border {
+    0%,100% { border-color: var(--accent); box-shadow: 0 0 4px rgba(0,200,255,0.2); }
+    50% { border-color: rgba(0,200,255,0.4); box-shadow: none; }
+  }
+
+  /* ── MAIN ── */
+  #main { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    width: 220px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 10px 14px;
+    font-size: 9px;
+    font-family: 'Orbitron', monospace;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #file-tree { flex: 1; overflow-y: auto; padding: 8px 0; font-size: 11px; }
+  #file-tree::-webkit-scrollbar { width: 3px; }
+  #file-tree::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .tree-item {
+    padding: 4px 14px;
+    cursor: pointer;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, color 0.15s, padding-left 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: tree-item-in 0.3s ease both;
+  }
+  @keyframes tree-item-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .tree-item:hover { background: rgba(0,200,255,0.04); color: var(--text); padding-left: 18px; }
+  .tree-item.active { background: rgba(0,200,255,0.08); color: var(--accent); }
+
+  .tree-icon {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .icon-definition { background: var(--node-def); box-shadow: 0 0 4px var(--node-def); }
+  .icon-call       { background: var(--node-call); box-shadow: 0 0 4px var(--node-call); }
+  .icon-import     { background: var(--node-import); box-shadow: 0 0 4px var(--node-import); }
+  .icon-export     { background: var(--node-export); box-shadow: 0 0 4px var(--node-export); }
+  .icon-type       { background: var(--node-type); box-shadow: 0 0 4px var(--node-type); }
+  .icon-reference  { background: var(--node-ref); }
+
+  #legend { border-top: 1px solid var(--border); padding: 10px 14px; flex-shrink: 0; }
+  .legend-title {
+    font-size: 9px; font-family: 'Orbitron', monospace;
+    color: var(--text3); letter-spacing: 0.12em; margin-bottom: 8px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; color: var(--text2); margin-bottom: 4px;
+  }
+
+  /* ── GRAPH ── */
+  #graph-container { flex: 1; position: relative; overflow: hidden; }
+  #cy { width: 100%; height: 100%; background: var(--bg); }
+
+  #cy-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── PARTICLE BURST CANVAS ── */
+  #particle-canvas {
+    position: absolute; inset: 0;
+    pointer-events: none; z-index: 5;
+  }
+
+  /* ── EXPAND RIPPLE ── */
+  .expand-ripple {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    pointer-events: none;
+    z-index: 6;
+    animation: ripple-out 0.7s ease-out forwards;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes ripple-out {
+    0%   { width: 20px; height: 20px; opacity: 0.9; }
+    100% { width: 120px; height: 120px; opacity: 0; }
+  }
+
+  /* ── NODE TRAIL (connection beam) ── */
+  .conn-beam {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    animation: beam-flash 0.4s ease-out forwards;
+    transform-origin: left center;
+  }
+  @keyframes beam-flash {
+    0%   { opacity: 0.8; scaleX: 0; }
+    50%  { opacity: 0.6; }
+    100% { opacity: 0; }
+  }
+
+  /* ── CONTEXT MENU ── */
+  #ctx-menu {
+    position: fixed;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    min-width: 210px;
+    z-index: 1000;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,200,255,0.05);
+    display: none;
+    animation: ctx-in 0.12s ease-out;
+  }
+  @keyframes ctx-in {
+    from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .ctx-header {
+    padding: 8px 14px 6px;
+    font-size: 9px; font-family: 'Orbitron', monospace;
+    color: var(--text3); letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .ctx-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px; font-size: 11px; color: var(--text);
+    cursor: pointer; transition: background 0.1s, padding-left 0.1s;
+  }
+  .ctx-item:hover { background: rgba(0,200,255,0.07); color: var(--accent); padding-left: 18px; }
+  .ctx-item .kbd {
+    margin-left: auto; font-size: 9px; color: var(--text3);
+    background: rgba(255,255,255,0.04); padding: 2px 5px; border: 1px solid var(--border);
+  }
+  .ctx-sep { height: 1px; background: var(--border); margin: 2px 0; }
+
+  /* ── DETAIL PANEL ── */
+  #detail-panel {
+    width: 260px; background: var(--panel); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+    transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+    overflow: hidden;
+  }
+  #detail-panel.open { transform: translateX(0); }
+  #detail-content { flex: 1; overflow-y: auto; padding: 12px 14px; }
+  #detail-content::-webkit-scrollbar { width: 3px; }
+  #detail-content::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .detail-node-name {
+    font-size: 15px; font-weight: 700; color: var(--accent);
+    text-shadow: 0 0 8px rgba(0,200,255,0.5); margin-bottom: 4px; word-break: break-all;
+    animation: detail-name-in 0.3s ease both;
+  }
+  @keyframes detail-name-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .detail-badge {
+    display: inline-block; font-size: 9px; padding: 2px 8px;
+    font-family: 'Orbitron', monospace; letter-spacing: 0.1em; margin-bottom: 12px;
+  }
+  .detail-section-title {
+    font-size: 9px; font-family: 'Orbitron', monospace; color: var(--text3);
+    letter-spacing: 0.12em; margin: 14px 0 6px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-row {
+    display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); margin-bottom: 4px;
+  }
+  .detail-row .dkey { color: var(--text3); }
+  .detail-row .dval { color: var(--text); text-align: right; }
+  .detail-code {
+    background: var(--bg); border: 1px solid var(--border); padding: 8px 10px;
+    font-size: 10px; color: var(--accent3); line-height: 1.6; margin-top: 6px; overflow-x: auto;
+  }
+  .conn-item {
+    display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 10px;
+    color: var(--text2); cursor: pointer; border-bottom: 1px solid var(--border);
+    transition: color 0.1s, padding-left 0.1s;
+  }
+  .conn-item:hover { color: var(--accent); padding-left: 4px; }
+  .conn-arrow { color: var(--text3); font-size: 8px; }
+
+  /* ── STATUS BAR ── */
+  #statusbar {
+    height: 26px; background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 14px; gap: 20px; font-size: 10px;
+    color: var(--text3); flex-shrink: 0;
+  }
+  #statusbar .seg { display: flex; align-items: center; gap: 5px; }
+  #statusbar .seg .val { color: var(--text2); }
+  #statusbar .sep { color: var(--border2); }
+  #msg { flex: 1; color: var(--accent3); font-size: 10px; }
+
+  /* ── CHORD PROGRESS ── */
+  #chord-progress {
+    position: fixed; bottom: 36px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg3);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 11px; padding: 5px 16px;
+    font-family: 'Orbitron', monospace; letter-spacing: 0.1em;
+    box-shadow: var(--glow);
+    z-index: 3000; pointer-events: none;
+    display: none;
+    animation: chord-in 0.15s ease-out;
+  }
+  #chord-progress.show { display: block; }
+  @keyframes chord-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  .chord-key {
+    display: inline-block;
+    background: rgba(0,200,255,0.15); border: 1px solid rgba(0,200,255,0.4);
+    padding: 1px 5px; margin: 0 2px; font-size: 10px;
+  }
+  .chord-hint { color: var(--text2); font-size: 9px; margin-left: 8px; }
+
+  /* ── KEYBOARD HELP ── */
+  #kbd-help {
+    position: fixed; inset: 0;
+    background: rgba(5,8,16,0.94); backdrop-filter: blur(4px);
+    z-index: 2000; display: none; align-items: center; justify-content: center;
+  }
+  #kbd-help.show { display: flex; animation: overlay-in 0.2s ease; }
+  @keyframes overlay-in {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  #kbd-content {
+    background: var(--bg3); border: 1px solid var(--border2);
+    padding: 24px 28px; min-width: 460px; max-width: 640px;
+    animation: panel-up 0.2s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes panel-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #kbd-title {
+    font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent);
+    letter-spacing: 0.15em; margin-bottom: 16px; text-shadow: var(--glow);
+  }
+  .kbd-section-header {
+    font-size: 9px; font-family: 'Orbitron', monospace; color: var(--text3);
+    letter-spacing: 0.12em; margin: 14px 0 6px; text-transform: uppercase;
+  }
+  .kbd-row {
+    display: flex; align-items: center; gap: 12px; padding: 5px 0;
+    border-bottom: 1px solid var(--border); font-size: 11px;
+  }
+  .kbd-row .keys { min-width: 180px; display: flex; gap: 3px; flex-wrap: wrap; }
+  .kbd-key {
+    background: rgba(0,200,255,0.08); border: 1px solid var(--border2);
+    padding: 2px 6px; font-size: 9px; color: var(--accent); letter-spacing: 0.05em;
+  }
+  .kbd-chord { color: var(--text3); font-size: 9px; padding: 0 2px; }
+  .kbd-desc { color: var(--text2); font-size: 10px; }
+  .kbd-platform { font-size: 9px; color: var(--text3); margin-left: auto; }
+  #kbd-close { margin-top: 16px; font-size: 10px; color: var(--text3); text-align: right; cursor: pointer; }
+  #kbd-close:hover { color: var(--accent); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 40px; left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: var(--bg3); border: 1px solid var(--accent);
+    color: var(--accent); font-size: 11px; padding: 8px 18px;
+    font-family: 'Orbitron', monospace; letter-spacing: 0.08em;
+    box-shadow: var(--glow); opacity: 0; transition: opacity 0.2s;
+    z-index: 3000; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── HISTORY BAR ── */
+  #history-bar { display: flex; align-items: center; gap: 4px; overflow-x: auto; }
+  #history-bar::-webkit-scrollbar { height: 2px; }
+  #history-bar::-webkit-scrollbar-thumb { background: var(--border2); }
+  .history-step { font-size: 9px; color: var(--text3); white-space: nowrap; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+  .history-step:hover { color: var(--text2); }
+  .history-step.current { color: var(--accent3); }
+  .history-step .sep { color: var(--border2); }
+
+  /* ── DEPTH RING ── */
+  #depth-ring { position: absolute; top: 12px; right: 12px; width: 52px; height: 52px; z-index: 10; }
+
+  /* ── NODE COUNT BADGE (appears near newly expanded node) ── */
+  .expand-badge {
+    position: absolute;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Orbitron', monospace;
+    font-size: 9px; font-weight: 700;
+    padding: 3px 7px;
+    pointer-events: none; z-index: 7;
+    animation: badge-pop 1.2s ease forwards;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+  }
+  @keyframes badge-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    15%  { opacity: 1; transform: translate(-50%, -60%) scale(1.1); }
+    30%  { transform: translate(-50%, -70%) scale(1); }
+    80%  { opacity: 1; transform: translate(-50%, -80%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -95%) scale(0.9); }
+  }
+
+  /* ── LOADING PULSE ── */
+  #loading-overlay {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    z-index: 100;
+    animation: loading-fade 0.5s 0.8s ease forwards;
+  }
+  @keyframes loading-fade {
+    to { opacity: 0; pointer-events: none; }
+  }
+  .loading-text {
+    font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent);
+    letter-spacing: 0.2em; animation: loading-blink 0.8s ease infinite alternate;
+  }
+  @keyframes loading-blink { from { opacity: 0.3; } to { opacity: 1; } }
+  .loading-bar {
+    width: 160px; height: 2px; background: rgba(0,200,255,0.1);
+    position: relative; overflow: hidden;
+  }
+  .loading-bar::after {
+    content: '';
+    position: absolute; top: 0; left: -40%; width: 40%; height: 100%;
+    background: var(--accent);
+    animation: loading-sweep 0.8s ease infinite;
+  }
+  @keyframes loading-sweep {
+    to { left: 140%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo">STRACTURA</div>
+  <div id="filepath"><span>src/</span>graph/<span>semantic.ts</span></div>
+  <div id="stats-bar">
+    <div class="stat">nodes <span class="val" id="stat-nodes">0</span></div>
+    <div class="stat">edges <span class="val" id="stat-edges">0</span></div>
+    <div class="stat">depth <span class="val" id="stat-depth">1</span></div>
+    <div class="stat">weight <span class="val" id="stat-weight">—</span></div>
+  </div>
+  <div id="mode-indicator">NORMAL</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div class="panel-header">FILE NODES</div>
+    <div id="file-tree"></div>
+    <div id="legend">
+      <div class="legend-title">NODE INTENT</div>
+      <div class="legend-item"><span class="tree-icon icon-definition"></span>definition</div>
+      <div class="legend-item"><span class="tree-icon icon-call"></span>call</div>
+      <div class="legend-item"><span class="tree-icon icon-import"></span>import</div>
+      <div class="legend-item"><span class="tree-icon icon-export"></span>export</div>
+      <div class="legend-item"><span class="tree-icon icon-type"></span>type</div>
+      <div class="legend-item"><span class="tree-icon icon-reference"></span>reference</div>
+    </div>
+  </div>
+
+  <!-- GRAPH -->
+  <div id="graph-container">
+    <div id="cy-bg"></div>
+    <canvas id="particle-canvas"></canvas>
+    <svg id="depth-ring" viewBox="0 0 52 52">
+      <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(0,200,255,0.08)" stroke-width="4"/>
+      <circle id="depth-arc" cx="26" cy="26" r="22" fill="none" stroke="rgba(0,200,255,0.5)"
+        stroke-width="4" stroke-linecap="round"
+        stroke-dasharray="138 138" stroke-dashoffset="110"
+        transform="rotate(-90 26 26)">
+        <animate attributeName="stroke-dashoffset" from="138" to="110" dur="0.6s" fill="freeze" id="depth-arc-anim"/>
+      </circle>
+      <text x="26" y="30" text-anchor="middle" fill="rgba(0,200,255,0.8)"
+        font-family="Orbitron" font-size="11" id="depth-text">1</text>
+    </svg>
+    <div id="loading-overlay">
+      <div class="loading-text">INITIALIZING GRAPH</div>
+      <div class="loading-bar"></div>
+    </div>
+    <div id="cy"></div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div id="detail-panel">
+    <div class="panel-header">NODE INSPECTOR</div>
+    <div id="detail-content">
+      <div style="color:var(--text3);font-size:11px;margin-top:20px;text-align:center;line-height:1.8;">
+        select a node<br>to inspect
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <div class="seg">selected <span class="val" id="sel-name">—</span></div>
+  <span class="sep">│</span>
+  <div id="msg">press <strong style="color:var(--accent)">?</strong> for shortcuts · right-click or double-click to expand</div>
+  <span class="sep">│</span>
+  <div id="history-bar"></div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-header" id="ctx-title">NODE ACTIONS</div>
+  <div class="ctx-item" id="ctx-expand"><span>⊕</span> Expand node <span class="kbd">Alt+E</span></div>
+  <div class="ctx-item" id="ctx-expand-deep"><span>⊕⊕</span> Expand deep <span class="kbd">Alt+D</span></div>
+  <div class="ctx-item" id="ctx-focus"><span>◎</span> Focus / center <span class="kbd">Alt+F</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-pin"><span>◈</span> Pin node <span class="kbd">Alt+P</span></div>
+  <div class="ctx-item" id="ctx-hide"><span>⊗</span> Hide node <span class="kbd">Alt+H</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-copyid"><span>⧉</span> Copy node ID <span class="kbd">Alt+C</span></div>
+</div>
+
+<!-- CHORD PROGRESS HUD -->
+<div id="chord-progress"></div>
+
+<!-- KEYBOARD HELP -->
+<div id="kbd-help">
+  <div id="kbd-content">
+    <div id="kbd-title">⌨ KEYBOARD SHORTCUTS</div>
+
+    <div class="kbd-section-header">Navigation</div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Tab</span></div>
+      <div class="kbd-desc">Select next node</div>
+      <div class="kbd-platform">✓ cross-platform</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Shift</span><span class="kbd-chord">+</span><span class="kbd-key">Tab</span></div>
+      <div class="kbd-desc">Select previous node</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">↑</span><span class="kbd-key">↓</span><span class="kbd-key">←</span><span class="kbd-key">→</span></div>
+      <div class="kbd-desc">Navigate to nearest node in direction</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Space</span></div>
+      <div class="kbd-desc">Fit / center entire graph</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Esc</span></div>
+      <div class="kbd-desc">Deselect / close panel</div>
+    </div>
+
+    <div class="kbd-section-header">Expand</div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Enter</span></div>
+      <div class="kbd-desc">Expand selected node (depth 1)</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Shift</span><span class="kbd-chord">+</span><span class="kbd-key">Enter</span></div>
+      <div class="kbd-desc">Expand deep (depth 2)</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">1</span><span class="kbd-chord">–</span><span class="kbd-key">9</span></div>
+      <div class="kbd-desc">Expand all to depth N</div>
+    </div>
+
+    <div class="kbd-section-header">Node Actions</div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">P</span></div>
+      <div class="kbd-desc">Pin / unpin selected node</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">H</span></div>
+      <div class="kbd-desc">Hide selected node</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">C</span></div>
+      <div class="kbd-desc">Copy node ID to clipboard</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">F</span></div>
+      <div class="kbd-desc">Focus / zoom to selected</div>
+    </div>
+
+    <div class="kbd-section-header">History</div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">[</span></div>
+      <div class="kbd-desc">Time travel back</div>
+    </div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">Alt</span><span class="kbd-chord">+</span><span class="kbd-key">]</span></div>
+      <div class="kbd-desc">Time travel forward</div>
+    </div>
+
+    <div class="kbd-section-header">View</div>
+    <div class="kbd-row">
+      <div class="keys"><span class="kbd-key">?</span></div>
+      <div class="kbd-desc">Toggle this help</div>
+    </div>
+
+    <div id="kbd-close">[ press ESC or ? to close ]</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const NODES = [
+  { id: 'semantic.ts:1:0:module', name: 'semantic.ts', intent: 'definition',
+    nodeType: 'Program', scope: 'module', weight: 95,
+    location: { start: {line:1,column:0}, end: {line:280,column:0} },
+    metadata: { nodeType:'Program', scope:'module', isExported: false },
+    seed: true },
+  { id: 'semantic.ts:3:0:import', name: 'WEIGHTS', intent: 'import',
+    nodeType: 'ImportDeclaration', weight: 72, target: '../graph/weights.js',
+    location: { start: {line:3,column:0}, end: {line:3,column:38} },
+    metadata: { nodeType:'ImportDeclaration', importKind:'value', isNamed:true }, depth: 1 },
+  { id: 'semantic.ts:6:0:type:SourcePosition', name: 'SourcePosition', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 60,
+    location: { start: {line:6,column:0}, end: {line:9,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type' }, depth: 1 },
+  { id: 'semantic.ts:11:0:type:SourceLocation', name: 'SourceLocation', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 65,
+    location: { start: {line:11,column:0}, end: {line:14,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type', extends: ['SourcePosition'] }, depth: 1 },
+  { id: 'semantic.ts:16:0:type:NodeIntent', name: 'NodeIntent', intent: 'type',
+    nodeType: 'TSTypeAliasDeclaration', scope: 'module', weight: 80,
+    location: { start: {line:16,column:0}, end: {line:16,column:68} },
+    metadata: { nodeType:'TSTypeAliasDeclaration', isExported:true, exportKind:'type' }, depth: 1 },
+  { id: 'semantic.ts:18:0:type:Scope', name: 'Scope', intent: 'type',
+    nodeType: 'TSTypeAliasDeclaration', scope: 'module', weight: 55,
+    location: { start: {line:18,column:0}, end: {line:18,column:58} },
+    metadata: { nodeType:'TSTypeAliasDeclaration', isExported:true, exportKind:'type' }, depth: 1 },
+  { id: 'semantic.ts:100:0:type:SemanticNodeMetadata', name: 'SemanticNodeMetadata', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 88,
+    location: { start: {line:100,column:0}, end: {line:155,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type', extends: ['NodeIntent'] }, depth: 2 },
+  { id: 'semantic.ts:157:0:type:SemanticNode', name: 'SemanticNode', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 96,
+    location: { start: {line:157,column:0}, end: {line:195,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type' }, depth: 2 },
+  { id: 'semantic.ts:197:0:type:SemanticEdge', name: 'SemanticEdge', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 78,
+    location: { start: {line:197,column:0}, end: {line:202,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type' }, depth: 2 },
+  { id: 'semantic.ts:204:0:type:SemanticGraph', name: 'SemanticGraph', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 92,
+    location: { start: {line:204,column:0}, end: {line:225,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type' }, depth: 2 },
+  { id: 'semantic.ts:50:0:type:Parameter', name: 'Parameter', intent: 'type',
+    nodeType: 'TSInterfaceDeclaration', scope: 'module', weight: 62,
+    location: { start: {line:50,column:0}, end: {line:57,column:1} },
+    metadata: { nodeType:'TSInterfaceDeclaration', isExported:true, exportKind:'type' }, depth: 2 },
+  { id: 'graph/weights.ts:1:0:export', name: 'WEIGHTS', intent: 'export',
+    nodeType: 'ExportNamedDeclaration', scope: 'module', weight: 70, target: 'graph/weights.ts',
+    location: { start: {line:1,column:0}, end: {line:30,column:0} },
+    metadata: { nodeType:'ExportNamedDeclaration', exportKind:'value', isExported:true }, depth: 3 },
+  { id: 'graph/analyzer.ts:12:4:def:analyzeNode', name: 'analyzeNode', intent: 'definition',
+    nodeType: 'FunctionDeclaration', scope: 'module', weight: 85,
+    location: { start: {line:12,column:4}, end: {line:48,column:5} },
+    metadata: { nodeType:'FunctionDeclaration', isAsync:true, isExported:true,
+      parameters:[{name:'node',type:'SemanticNode'},{name:'ctx',type:'Context',optional:true}],
+      returnType:'Promise<AnalysisResult>' }, depth: 3 },
+  { id: 'graph/analyzer.ts:50:4:call:buildEdges', name: 'buildEdges', intent: 'call',
+    nodeType: 'CallExpression', scope: 'function', weight: 74,
+    location: { start: {line:50,column:4}, end: {line:50,column:28} },
+    metadata: { nodeType:'CallExpression', callee:'buildEdges', chained:false }, depth: 3 },
+  { id: 'graph/traversal.ts:8:0:def:traverse', name: 'traverse', intent: 'definition',
+    nodeType: 'FunctionDeclaration', scope: 'module', weight: 88,
+    location: { start: {line:8,column:0}, end: {line:62,column:1} },
+    metadata: { nodeType:'FunctionDeclaration', isAsync:false, isExported:true,
+      parameters:[{name:'graph',type:'SemanticGraph'},{name:'depth',type:'number',defaultValue:'1'}],
+      returnType:'SemanticNode[]' }, depth: 3 },
+  { id: 'graph/analyzer.ts:60:4:ref:SemanticNode', name: 'SemanticNode (ref)', intent: 'reference',
+    nodeType: 'TSTypeReference', scope: 'function', weight: 58,
+    location: { start: {line:60,column:4}, end: {line:60,column:16} },
+    metadata: { nodeType:'TSTypeReference' }, depth: 4 },
+  { id: 'graph/traversal.ts:20:2:call:resolveEdge', name: 'resolveEdge', intent: 'call',
+    nodeType: 'CallExpression', scope: 'function', weight: 66,
+    location: { start: {line:20,column:2}, end: {line:20,column:32} },
+    metadata: { nodeType:'CallExpression', callee:'resolveEdge', chained:true }, depth: 4 },
+  { id: 'graph/cache.ts:1:0:import:NodeCache', name: 'NodeCache', intent: 'import',
+    nodeType: 'ImportDeclaration', weight: 55, target: 'node-cache',
+    location: { start: {line:1,column:0}, end: {line:1,column:35} },
+    metadata: { nodeType:'ImportDeclaration', importKind:'value', isNamed:true }, depth: 4 },
+];
+
+const EDGES = [
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:3:0:import', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:6:0:type:SourcePosition', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:11:0:type:SourceLocation', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:16:0:type:NodeIntent', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:18:0:type:Scope', weight: 1 },
+  { from: 'semantic.ts:11:0:type:SourceLocation', to: 'semantic.ts:6:0:type:SourcePosition', weight: 2 },
+  { from: 'semantic.ts:3:0:import', to: 'graph/weights.ts:1:0:export', weight: 2 },
+  { from: 'semantic.ts:16:0:type:NodeIntent', to: 'semantic.ts:100:0:type:SemanticNodeMetadata', weight: 2 },
+  { from: 'semantic.ts:6:0:type:SourcePosition', to: 'semantic.ts:100:0:type:SemanticNodeMetadata', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:100:0:type:SemanticNodeMetadata', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:157:0:type:SemanticNode', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:197:0:type:SemanticEdge', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:204:0:type:SemanticGraph', weight: 1 },
+  { from: 'semantic.ts:1:0:module', to: 'semantic.ts:50:0:type:Parameter', weight: 1 },
+  { from: 'semantic.ts:100:0:type:SemanticNodeMetadata', to: 'semantic.ts:50:0:type:Parameter', weight: 2 },
+  { from: 'semantic.ts:157:0:type:SemanticNode', to: 'semantic.ts:100:0:type:SemanticNodeMetadata', weight: 3 },
+  { from: 'semantic.ts:157:0:type:SemanticNode', to: 'semantic.ts:11:0:type:SourceLocation', weight: 2 },
+  { from: 'semantic.ts:204:0:type:SemanticGraph', to: 'semantic.ts:157:0:type:SemanticNode', weight: 2 },
+  { from: 'semantic.ts:204:0:type:SemanticGraph', to: 'semantic.ts:197:0:type:SemanticEdge', weight: 2 },
+  { from: 'semantic.ts:157:0:type:SemanticNode', to: 'graph/analyzer.ts:12:4:def:analyzeNode', weight: 3 },
+  { from: 'graph/analyzer.ts:12:4:def:analyzeNode', to: 'graph/analyzer.ts:50:4:call:buildEdges', weight: 2 },
+  { from: 'semantic.ts:204:0:type:SemanticGraph', to: 'graph/traversal.ts:8:0:def:traverse', weight: 3 },
+  { from: 'graph/analyzer.ts:12:4:def:analyzeNode', to: 'graph/analyzer.ts:60:4:ref:SemanticNode', weight: 1 },
+  { from: 'graph/traversal.ts:8:0:def:traverse', to: 'graph/traversal.ts:20:2:call:resolveEdge', weight: 2 },
+  { from: 'graph/traversal.ts:8:0:def:traverse', to: 'graph/cache.ts:1:0:import:NodeCache', weight: 1 },
+  { from: 'graph/analyzer.ts:50:4:call:buildEdges', to: 'graph/weights.ts:1:0:export', weight: 2 },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+const state = {
+  visibleNodeIds: new Set(),
+  selectedNodeId: null,
+  pinnedNodeIds: new Set(),
+  currentDepth: 1,
+  history: [],
+  historyIndex: -1,
+  cy: null,
+  ctxTargetId: null,
+};
+
+// ── COLORS ────────────────────────────────────────────────────────────────────
+const intentColor = {
+  definition: '#00c8ff',
+  call: '#7b2fff',
+  import: '#00ffb2',
+  export: '#ff6b35',
+  type: '#f0c040',
+  reference: '#806050',
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function getNode(id) { return NODES.find(n => n.id === id); }
+function getNeighbors(id) {
+  const out = EDGES.filter(e => e.from === id).map(e => e.to);
+  const inc = EDGES.filter(e => e.to === id).map(e => e.from);
+  return [...new Set([...out, ...inc])];
+}
+function shortName(id) { const n = getNode(id); return n ? n.name : id.split(':').pop(); }
+
+let toastTimer = null;
+function toast(msg, duration = 1800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function setMsg(msg) { document.getElementById('msg').innerHTML = msg; }
+
+// ── PARTICLE SYSTEM ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('particle-canvas');
+const ctx2d = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  const gc = document.getElementById('graph-container');
+  canvas.width = gc.offsetWidth;
+  canvas.height = gc.offsetHeight;
+}
+
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 1.5 + Math.random() * 2.5;
+    particles.push({
+      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.025 + Math.random() * 0.02,
+      size: 2 + Math.random() * 2.5,
+      color,
+    });
+  }
+}
+
+function spawnTrail(x1, y1, x2, y2, color) {
+  const steps = 6;
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    particles.push({
+      x: x1 + (x2-x1)*t + (Math.random()-0.5)*4,
+      y: y1 + (y2-y1)*t + (Math.random()-0.5)*4,
+      vx: (Math.random()-0.5)*0.5, vy: (Math.random()-0.5)*0.5,
+      life: 0.6 + t*0.4, decay: 0.04,
+      size: 1.5 + Math.random(),
+      color,
+    });
+  }
+}
+
+function animateParticles() {
+  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.95; p.vy *= 0.95;
+    p.life -= p.decay;
+    ctx2d.globalAlpha = Math.max(0, p.life);
+    ctx2d.fillStyle = p.color;
+    ctx2d.beginPath();
+    ctx2d.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx2d.fill();
+  });
+  ctx2d.globalAlpha = 1;
+  requestAnimationFrame(animateParticles);
+}
+
+// ── RIPPLE EFFECT ─────────────────────────────────────────────────────────────
+function spawnRipple(x, y, color) {
+  const gc = document.getElementById('graph-container');
+  const el = document.createElement('div');
+  el.className = 'expand-ripple';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.borderColor = color;
+  gc.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function spawnExpandBadge(x, y, count) {
+  const gc = document.getElementById('graph-container');
+  const el = document.createElement('div');
+  el.className = 'expand-badge';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.textContent = `+${count} nodes`;
+  gc.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
+// Convert cytoscape rendered position to container-relative
+function cyPosToContainer(cyPos) {
+  const gc = document.getElementById('graph-container');
+  const gcRect = gc.getBoundingClientRect();
+  const cyEl = document.getElementById('cy');
+  const cyRect = cyEl.getBoundingClientRect();
+  return {
+    x: cyPos.x + (cyRect.left - gcRect.left),
+    y: cyPos.y + (cyRect.top - gcRect.top),
+  };
+}
+
+// ── CYTOSCAPE INIT ────────────────────────────────────────────────────────────
+function initCy() {
+  state.cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [],
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'width': 'data(size)',
+          'height': 'data(size)',
+          'background-color': 'data(color)',
+          'background-opacity': 0.15,
+          'border-color': 'data(color)',
+          'border-width': 1.5,
+          'border-opacity': 0.85,
+          'label': 'data(label)',
+          'color': '#c8daf0',
+          'font-size': 10,
+          'font-family': 'JetBrains Mono',
+          'text-valign': 'bottom',
+          'text-halign': 'center',
+          'text-margin-y': 4,
+          'text-opacity': 0.8,
+          'min-zoomed-font-size': 8,
+          'shape': 'ellipse',
+          'shadow-blur': 12,
+          'shadow-color': 'data(color)',
+          'shadow-opacity': 0.4,
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 0,
+          'transition-property': 'background-opacity, border-opacity, shadow-opacity, width, height',
+          'transition-duration': '0.25s',
+        }
+      },
+      {
+        selector: 'node:selected',
+        style: {
+          'background-opacity': 0.35,
+          'border-width': 2.5,
+          'border-opacity': 1,
+          'shadow-opacity': 0.8,
+          'shadow-blur': 28,
+          'text-opacity': 1,
+          'color': '#ffffff',
+        }
+      },
+      {
+        selector: 'node.pinned',
+        style: { 'shape': 'diamond', 'border-style': 'dashed' }
+      },
+      {
+        selector: 'node.seed',
+        style: { 'shape': 'hexagon', 'border-width': 2.5, 'background-opacity': 0.25 }
+      },
+      {
+        selector: 'node.new-node',
+        style: {
+          'background-opacity': 0.6,
+          'border-opacity': 1,
+          'shadow-opacity': 1,
+          'shadow-blur': 40,
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 'data(weight)',
+          'line-color': 'data(edgeColor)',
+          'line-opacity': 0.35,
+          'target-arrow-color': 'data(edgeColor)',
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 0.7,
+          'curve-style': 'bezier',
+          'target-arrow-opacity': 0.5,
+          'transition-property': 'line-opacity, target-arrow-opacity',
+          'transition-duration': '0.2s',
+        }
+      },
+      {
+        selector: 'edge.highlighted',
+        style: {
+          'line-opacity': 0.85,
+          'target-arrow-opacity': 1,
+          'width': 2,
+          'z-index': 10,
+        }
+      },
+      {
+        selector: '.dimmed',
+        style: { 'opacity': 0.15 }
+      },
+      {
+        selector: 'edge.new-edge',
+        style: {
+          'line-opacity': 0.8,
+          'target-arrow-opacity': 0.9,
+        }
+      }
+    ],
+    layout: { name: 'preset' },
+    wheelSensitivity: 0.3,
+    minZoom: 0.15,
+    maxZoom: 4,
+  });
+
+  state.cy.on('tap', 'node', (e) => selectNode(e.target.id()));
+  state.cy.on('tap', (e) => { if (e.target === state.cy) deselectAll(); });
+  state.cy.on('cxttap', 'node', (e) => {
+    e.originalEvent.preventDefault();
+    showCtxMenu(e.originalEvent, e.target.id());
+  });
+  state.cy.on('dbltap', 'node', (e) => expandNode(e.target.id()));
+
+  state.cy.on('mouseover', 'node', (e) => {
+    const id = e.target.id();
+    const neighbors = new Set(getNeighbors(id));
+    neighbors.add(id);
+    state.cy.elements().forEach(el => {
+      if (!neighbors.has(el.id()) && !el.isEdge()) el.addClass('dimmed');
+    });
+    state.cy.edges().forEach(edge => {
+      const src = edge.data('source'), tgt = edge.data('target');
+      if (src !== id && tgt !== id) edge.addClass('dimmed');
+    });
+  });
+  state.cy.on('mouseout', 'node', () => {
+    state.cy.elements().removeClass('dimmed');
+  });
+}
+
+// ── NODE DATA ─────────────────────────────────────────────────────────────────
+function cyNodeData(nd) {
+  const sz = 14 + Math.min(nd.weight / 100 * 22, 22);
+  return {
+    group: 'nodes',
+    data: {
+      id: nd.id, label: nd.name,
+      color: intentColor[nd.intent] || '#888',
+      size: sz, weight: nd.weight, intent: nd.intent,
+    },
+    classes: nd.seed ? 'seed' : '',
+  };
+}
+
+function cyEdgeData(edge) {
+  const fromNode = getNode(edge.from);
+  const col = fromNode ? (intentColor[fromNode.intent] || '#888') : '#888';
+  return {
+    group: 'edges',
+    data: {
+      id: `${edge.from}__${edge.to}`,
+      source: edge.from, target: edge.to,
+      weight: Math.min(edge.weight * 0.6 + 0.4, 2),
+      edgeColor: col,
+    }
+  };
+}
+
+// ── LAYOUT ────────────────────────────────────────────────────────────────────
+function runLayout(fit = false, focusId = null) {
+  const n = state.cy.nodes().length;
+  const opts = n <= 3 ? {
+    name: 'concentric', animate: true, animationDuration: 500,
+    animationEasing: 'ease-in-out-cubic',
+    concentric: (n) => n.data('weight'),
+    levelWidth: () => 3, padding: 60, minNodeSpacing: 50,
+  } : {
+    name: 'cose', animate: true,
+    animationDuration: 600, animationEasing: 'ease-in-out-cubic',
+    randomize: false,
+    nodeRepulsion: () => 14000, edgeElasticity: () => 200,
+    gravity: 0.3, nestingFactor: 1.2, padding: 60,
+    fit: fit, componentSpacing: 70,
+    coolingFactor: 0.97, initialTemp: 500,
+  };
+
+  const layout = state.cy.layout(opts);
+
+  if (focusId) {
+    layout.one('layoutstop', () => {
+      const el = state.cy.$id(focusId);
+      if (el.length) {
+        state.cy.animate({ center: { eles: el }, zoom: Math.max(state.cy.zoom(), 1.3) }, { duration: 300 });
+      }
+    });
+  }
+
+  layout.run();
+}
+
+// ── ADD NODES ─────────────────────────────────────────────────────────────────
+function addNodeToGraph(nd, animate = true) {
+  if (state.cy.$id(nd.id).length) return;
+  state.visibleNodeIds.add(nd.id);
+  const cyData = cyNodeData(nd);
+  if (animate) cyData.classes = (cyData.classes + ' new-node').trim();
+  state.cy.add(cyData);
+  if (animate) {
+    // Flash new-node class then remove
+    setTimeout(() => {
+      const el = state.cy.$id(nd.id);
+      if (el.length) {
+        el.removeClass('new-node');
+      }
+    }, 600);
+  }
+  updateFileTree();
+  updateStats();
+}
+
+function addEdgeToGraph(edge) {
+  const eid = `${edge.from}__${edge.to}`;
+  if (state.cy.$id(eid).length) return;
+  if (!state.cy.$id(edge.from).length || !state.cy.$id(edge.to).length) return;
+  const el = state.cy.add(cyEdgeData(edge));
+  el.addClass('new-edge');
+  setTimeout(() => el.removeClass('new-edge'), 400);
+}
+
+// ── SEED ──────────────────────────────────────────────────────────────────────
+function seedGraph() {
+  const seedNode = NODES.find(n => n.seed);
+  addNodeToGraph(seedNode, false);
+  NODES.filter(n => n.depth === 1).forEach(n => addNodeToGraph(n, false));
+  EDGES.forEach(e => {
+    if (state.visibleNodeIds.has(e.from) && state.visibleNodeIds.has(e.to)) addEdgeToGraph(e);
+  });
+  saveHistory();
+  runLayout(true);
+  setMsg('graph initialized · <strong style="color:var(--accent)">Enter</strong> expand · <strong style="color:var(--accent)">Tab</strong> navigate · <strong style="color:var(--accent)">?</strong> help');
+  updateDepthIndicator(1);
+}
+
+// ── EXPAND ────────────────────────────────────────────────────────────────────
+function expandNode(id, depth = 1) {
+  const node = getNode(id);
+  if (!node) return;
+
+  const toAdd = [];
+  function collect(srcId, rem) {
+    if (rem <= 0) return;
+    getNeighbors(srcId).forEach(nid => {
+      if (!state.visibleNodeIds.has(nid)) {
+        const nd = getNode(nid);
+        if (nd) toAdd.push(nd);
+      }
+    });
+    if (rem > 1) getNeighbors(srcId).forEach(nid => collect(nid, rem - 1));
+  }
+  collect(id, depth);
+
+  if (toAdd.length === 0) { toast('⊙ no further nodes'); return; }
+
+  // Get source position for particle effects
+  const srcEl = state.cy.$id(id);
+  const srcRp = srcEl.length ? srcEl.renderedPosition() : null;
+  const color = intentColor[node.intent] || '#00c8ff';
+
+  // Staggered node appearance
+  toAdd.forEach((nd, i) => {
+    setTimeout(() => {
+      addNodeToGraph(nd, true);
+
+      // Add relevant edges for this node immediately
+      EDGES.forEach(e => {
+        if (state.visibleNodeIds.has(e.from) && state.visibleNodeIds.has(e.to)) addEdgeToGraph(e);
+      });
+
+      // Spawn particle at source
+      if (srcRp) {
+        const cp = cyPosToContainer(srcRp);
+        spawnParticles(cp.x, cp.y, color, 5);
+      }
+
+      // After last node, run layout and fire big effects
+      if (i === toAdd.length - 1) {
+        runLayout(false, id);
+        updateStats();
+
+        setTimeout(() => {
+          // Spawn ripple + badge at source node's new position
+          if (srcEl.length) {
+            const rp = srcEl.renderedPosition();
+            const cp = cyPosToContainer(rp);
+            spawnRipple(cp.x, cp.y, color);
+            spawnRipple(cp.x, cp.y, color);
+            spawnParticles(cp.x, cp.y, color, 20);
+            spawnExpandBadge(cp.x, cp.y - 20, toAdd.length);
+          }
+        }, 200);
+      }
+    }, i * 60); // stagger 60ms each
+  });
+
+  saveHistory();
+  toast(`⊕ expanding +${toAdd.length}`);
+  setMsg(`expanded <strong style="color:var(--accent)">${node.name}</strong> → ${toAdd.length} new nodes`);
+  state.currentDepth = Math.min(state.currentDepth + 1, 9);
+  updateDepthIndicator(state.currentDepth);
+}
+
+function expandToDepth(depth) {
+  const targets = NODES.filter(n => (n.depth || 0) <= depth && !state.visibleNodeIds.has(n.id));
+  if (targets.length === 0) { toast(`already at depth ${depth}`); return; }
+
+  targets.forEach((nd, i) => {
+    setTimeout(() => {
+      addNodeToGraph(nd, true);
+      EDGES.forEach(e => {
+        if (state.visibleNodeIds.has(e.from) && state.visibleNodeIds.has(e.to)) addEdgeToGraph(e);
+      });
+    }, i * 40);
+  });
+
+  setTimeout(() => {
+    runLayout(true);
+    saveHistory();
+    updateStats();
+    state.currentDepth = depth;
+    updateDepthIndicator(depth);
+    toast(`depth ${depth} · +${targets.length} nodes`);
+  }, targets.length * 40 + 50);
+}
+
+// ── SELECT ────────────────────────────────────────────────────────────────────
+function selectNode(id) {
+  state.selectedNodeId = id;
+  state.cy.elements().unselect();
+  const el = state.cy.$id(id);
+  el.select();
+  state.cy.edges().removeClass('highlighted');
+  el.connectedEdges().addClass('highlighted');
+  document.getElementById('sel-name').textContent = shortName(id);
+
+  // Particle burst on select
+  if (el.length) {
+    const rp = el.renderedPosition();
+    const cp = cyPosToContainer(rp);
+    const color = intentColor[getNode(id)?.intent] || '#00c8ff';
+    spawnParticles(cp.x, cp.y, color, 8);
+  }
+
+  showDetailPanel(id);
+  updateFileTree();
+}
+
+function deselectAll() {
+  state.selectedNodeId = null;
+  state.cy.elements().unselect();
+  state.cy.edges().removeClass('highlighted');
+  document.getElementById('sel-name').textContent = '—';
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('stat-weight').textContent = '—';
+  updateFileTree();
+}
+
+// ── DETAIL PANEL ──────────────────────────────────────────────────────────────
+function showDetailPanel(id) {
+  const nd = getNode(id);
+  if (!nd) return;
+  const panel = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+  panel.classList.add('open');
+
+  const col = intentColor[nd.intent] || '#888';
+  const outgoing = EDGES.filter(e => e.from === id);
+  const incoming = EDGES.filter(e => e.to === id);
+
+  const connHtml = (list, dir) => list.map(e => {
+    const oid = dir === 'out' ? e.to : e.from;
+    const other = getNode(oid);
+    if (!other) return '';
+    const vis = state.visibleNodeIds.has(oid);
+    return `<div class="conn-item" onclick="selectOrExpand('${oid}', '${id}')">
+      <span class="tree-icon icon-${other.intent}"></span>
+      <span>${other.name}</span>
+      <span class="conn-arrow" style="margin-left:auto">${dir === 'out' ? '→' : '←'}</span>
+      ${vis ? '' : '<span style="font-size:9px;color:var(--text3);margin-left:4px">[+]</span>'}
+    </div>`;
+  }).join('');
+
+  let paramHtml = '';
+  if (nd.metadata.parameters?.length) {
+    paramHtml = `<div class="detail-section-title">PARAMETERS</div><div class="detail-code">` +
+      nd.metadata.parameters.map(p =>
+        `${p.rest?'...':''}${p.name}${p.optional?'?':''}: ${p.type||'any'}${p.defaultValue?` = ${p.defaultValue}`:''}`
+      ).join('\n') + `</div>`;
+  }
+
+  content.innerHTML = `
+    <div class="detail-node-name">${nd.name}</div>
+    <span class="detail-badge" style="background:${col}22;border:1px solid ${col}66;color:${col}">${nd.intent.toUpperCase()}</span>
+    <div class="detail-section-title">LOCATION</div>
+    <div class="detail-row"><span class="dkey">file</span><span class="dval">${nd.id.split(':')[0]}</span></div>
+    <div class="detail-row"><span class="dkey">line</span><span class="dval">${nd.location.start.line}:${nd.location.start.column}</span></div>
+    <div class="detail-row"><span class="dkey">ast</span><span class="dval">${nd.metadata.nodeType}</span></div>
+    ${nd.target ? `<div class="detail-row"><span class="dkey">target</span><span class="dval">${nd.target}</span></div>` : ''}
+    <div class="detail-section-title">METADATA</div>
+    <div class="detail-row"><span class="dkey">weight</span><span class="dval">${nd.weight}</span></div>
+    ${nd.scope ? `<div class="detail-row"><span class="dkey">scope</span><span class="dval">${nd.scope}</span></div>` : ''}
+    ${nd.metadata.isExported !== undefined ? `<div class="detail-row"><span class="dkey">exported</span><span class="dval">${nd.metadata.isExported}</span></div>` : ''}
+    ${nd.metadata.isAsync !== undefined ? `<div class="detail-row"><span class="dkey">async</span><span class="dval">${nd.metadata.isAsync}</span></div>` : ''}
+    ${nd.metadata.returnType ? `<div class="detail-row"><span class="dkey">returns</span><span class="dval">${nd.metadata.returnType}</span></div>` : ''}
+    ${nd.metadata.extends ? `<div class="detail-row"><span class="dkey">extends</span><span class="dval">${nd.metadata.extends.join(', ')}</span></div>` : ''}
+    ${paramHtml}
+    ${outgoing.length ? `<div class="detail-section-title">OUTGOING (${outgoing.length})</div><div class="detail-connections">${connHtml(outgoing,'out')}</div>` : ''}
+    ${incoming.length ? `<div class="detail-section-title">INCOMING (${incoming.length})</div><div class="detail-connections">${connHtml(incoming,'in')}</div>` : ''}
+  `;
+  document.getElementById('stat-weight').textContent = nd.weight;
+}
+
+window.selectOrExpand = function(id, fromId) {
+  if (state.visibleNodeIds.has(id)) {
+    selectNode(id);
+    state.cy.animate({ center: { eles: state.cy.$id(id) }, zoom: 1.5 }, { duration: 300 });
+  } else {
+    expandNode(fromId, 1);
+    setTimeout(() => selectNode(id), 700);
+  }
+};
+
+// ── FILE TREE ─────────────────────────────────────────────────────────────────
+function updateFileTree() {
+  const tree = document.getElementById('file-tree');
+  const visible = NODES.filter(n => state.visibleNodeIds.has(n.id));
+  tree.innerHTML = visible.map((nd, i) => `
+    <div class="tree-item ${state.selectedNodeId === nd.id ? 'active' : ''}"
+      style="animation-delay: ${i * 20}ms"
+      onclick="selectNode('${nd.id}'); state.cy.animate({center:{eles:state.cy.$id('${nd.id}')},zoom:1.8},{duration:250});">
+      <span class="tree-icon icon-${nd.intent}"></span>
+      <span>${nd.name}</span>
+    </div>
+  `).join('');
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-nodes').textContent = state.cy.nodes().length;
+  document.getElementById('stat-edges').textContent = state.cy.edges().length;
+  document.getElementById('stat-depth').textContent = state.currentDepth;
+}
+
+// ── DEPTH INDICATOR ───────────────────────────────────────────────────────────
+function updateDepthIndicator(depth) {
+  const arc = document.getElementById('depth-arc');
+  const text = document.getElementById('depth-text');
+  const circ = 138;
+  const fraction = Math.min(depth / 9, 1);
+  arc.setAttribute('stroke-dashoffset', circ - circ * fraction);
+  text.textContent = depth;
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function saveHistory() {
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push([...state.visibleNodeIds]);
+  state.historyIndex = state.history.length - 1;
+  updateHistoryBar();
+}
+
+function travelHistory(dir) {
+  const newIdx = state.historyIndex + dir;
+  if (newIdx < 0 || newIdx >= state.history.length) {
+    toast(dir < 0 ? '◀ at beginning' : '▶ at end'); return;
+  }
+  state.historyIndex = newIdx;
+  const snapshot = state.history[newIdx];
+  state.cy.nodes().forEach(n => {
+    if (!snapshot.includes(n.id())) { state.cy.remove(n); state.visibleNodeIds.delete(n.id()); }
+  });
+  snapshot.forEach(id => {
+    if (!state.visibleNodeIds.has(id)) { const nd = getNode(id); if (nd) addNodeToGraph(nd, true); }
+  });
+  EDGES.forEach(e => {
+    if (state.visibleNodeIds.has(e.from) && state.visibleNodeIds.has(e.to)) addEdgeToGraph(e);
+  });
+  runLayout(false);
+  updateHistoryBar();
+  toast(dir < 0 ? '◀ time travel back' : '▶ time travel forward');
+  updateStats();
+}
+
+function updateHistoryBar() {
+  const bar = document.getElementById('history-bar');
+  bar.innerHTML = state.history.map((snap, i) => `
+    <div class="history-step ${i === state.historyIndex ? 'current' : ''}" onclick="jumpHistory(${i})">
+      ${i > 0 ? '<span class="sep">›</span>' : ''}
+      <span>s${i+1}(${snap.length})</span>
+    </div>
+  `).join('');
+}
+
+window.jumpHistory = function(idx) {
+  const dir = idx - state.historyIndex;
+  if (dir === 0) return;
+  // Jump multiple steps
+  for (let i = 0; i < Math.abs(dir); i++) travelHistory(dir > 0 ? 1 : -1);
+};
+
+// ── CONTEXT MENU ──────────────────────────────────────────────────────────────
+function showCtxMenu(evt, nodeId) {
+  const menu = document.getElementById('ctx-menu');
+  const nd = getNode(nodeId);
+  state.ctxTargetId = nodeId;
+  document.getElementById('ctx-title').textContent = nd ? nd.name.toUpperCase() : 'NODE ACTIONS';
+  menu.style.display = 'block';
+  let x = evt.clientX, y = evt.clientY;
+  setTimeout(() => {
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    if (x + w > window.innerWidth) x = window.innerWidth - w - 8;
+    if (y + h > window.innerHeight) y = window.innerHeight - h - 8;
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+  }, 0);
+  selectNode(nodeId);
+}
+
+function hideCtxMenu() {
+  document.getElementById('ctx-menu').style.display = 'none';
+  state.ctxTargetId = null;
+}
+
+document.getElementById('ctx-expand').addEventListener('click', () => {
+  if (state.ctxTargetId) expandNode(state.ctxTargetId, 1); hideCtxMenu();
+});
+document.getElementById('ctx-expand-deep').addEventListener('click', () => {
+  if (state.ctxTargetId) expandNode(state.ctxTargetId, 2); hideCtxMenu();
+});
+document.getElementById('ctx-focus').addEventListener('click', () => {
+  if (state.ctxTargetId) state.cy.animate({ center: { eles: state.cy.$id(state.ctxTargetId) }, zoom: 2 }, { duration: 300 });
+  hideCtxMenu();
+});
+document.getElementById('ctx-pin').addEventListener('click', () => {
+  if (state.ctxTargetId) togglePin(state.ctxTargetId); hideCtxMenu();
+});
+document.getElementById('ctx-hide').addEventListener('click', () => {
+  if (state.ctxTargetId) hideNode(state.ctxTargetId); hideCtxMenu();
+});
+document.getElementById('ctx-copyid').addEventListener('click', () => {
+  if (state.ctxTargetId) { navigator.clipboard.writeText(state.ctxTargetId).catch(()=>{}); toast('⧉ ID copied'); }
+  hideCtxMenu();
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#ctx-menu')) hideCtxMenu(); });
+document.addEventListener('contextmenu', (e) => { if (!e.target.closest('#cy')) return; e.preventDefault(); });
+
+function togglePin(id) {
+  const el = state.cy.$id(id);
+  if (state.pinnedNodeIds.has(id)) {
+    state.pinnedNodeIds.delete(id); el.removeClass('pinned'); el.unlock(); toast('◈ unpinned');
+  } else {
+    state.pinnedNodeIds.add(id); el.addClass('pinned'); el.lock(); toast('◈ pinned');
+  }
+}
+
+function hideNode(id) {
+  state.cy.remove(state.cy.$id(id));
+  state.visibleNodeIds.delete(id);
+  if (state.selectedNodeId === id) deselectAll();
+  updateStats(); updateFileTree(); saveHistory();
+  toast('⊗ node hidden');
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
+// Design goals:
+//  - No Ctrl/Cmd combos (conflicts with browser/OS/VS Code)
+//  - Alt+key for single-key node actions (Alt is rarely grabbed by editors in-browser)
+//  - Tab/Shift+Tab = cycle nodes (universal, natural)
+//  - Arrow keys = directional navigate
+//  - Enter = expand (natural "confirm" gesture)
+//  - 1-9 = expand to depth N (fast, no modifier needed)
+//  - Space = fit view
+//  - ? = help
+
+let chordTimer = null;
+let chordStep = null; // null | 'chord'
+
+function showChordHUD(html) {
+  const el = document.getElementById('chord-progress');
+  el.innerHTML = html;
+  el.classList.add('show');
+  document.getElementById('mode-indicator').textContent = 'CHORD...';
+  document.getElementById('mode-indicator').classList.add('active');
+}
+
+function hideChordHUD() {
+  document.getElementById('chord-progress').classList.remove('show');
+  document.getElementById('mode-indicator').textContent = 'NORMAL';
+  document.getElementById('mode-indicator').classList.remove('active');
+  chordStep = null;
+  if (chordTimer) { clearTimeout(chordTimer); chordTimer = null; }
+}
+
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+  const key = e.key;
+  const alt = e.altKey;
+  const shift = e.shiftKey;
+  const ctrl = e.ctrlKey || e.metaKey;
+
+  // Skip if ctrl (avoid browser shortcuts)
+  // We only use Alt + letter combos to avoid ALL browser/IDE conflicts
+
+  // ? — toggle help
+  if (key === '?' || (shift && key === '/')) {
+    e.preventDefault(); toggleKbdHelp(); return;
+  }
+
+  // Esc — close overlays, deselect
+  if (key === 'Escape') {
+    e.preventDefault();
+    hideChordHUD();
+    if (document.getElementById('kbd-help').classList.contains('show')) {
+      document.getElementById('kbd-help').classList.remove('show');
+    } else {
+      deselectAll();
+    }
+    return;
+  }
+
+  // Space — fit graph
+  if (key === ' ') {
+    e.preventDefault();
+    state.cy.fit(undefined, 60);
+    toast('◎ view fitted');
+    return;
+  }
+
+  // Tab — cycle nodes
+  if (key === 'Tab' && !alt && !ctrl) {
+    e.preventDefault();
+    cycleNodes(shift ? -1 : 1);
+    return;
+  }
+
+  // Arrow keys — directional nav
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key) && !alt && !ctrl) {
+    e.preventDefault();
+    const dirMap = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
+    navigateDir(dirMap[key]);
+    return;
+  }
+
+  // Enter — expand selected
+  if (key === 'Enter' && !alt && !ctrl) {
+    e.preventDefault();
+    if (state.selectedNodeId) expandNode(state.selectedNodeId, shift ? 2 : 1);
+    else toast('select a node first');
+    return;
+  }
+
+  // 1-9 — expand to depth (no modifier, no conflict)
+  if (key >= '1' && key <= '9' && !alt && !ctrl && !shift) {
+    e.preventDefault();
+    expandToDepth(parseInt(key));
+    return;
+  }
+
+  // Alt+E — expand selected
+  if (alt && key === 'e') {
+    e.preventDefault();
+    if (state.selectedNodeId) expandNode(state.selectedNodeId, 1);
+    else toast('select a node first');
+    return;
+  }
+
+  // Alt+D — expand deep
+  if (alt && key === 'd') {
+    e.preventDefault();
+    if (state.selectedNodeId) expandNode(state.selectedNodeId, 2);
+    else toast('select a node first');
+    return;
+  }
+
+  // Alt+F — focus/center
+  if (alt && key === 'f') {
+    e.preventDefault();
+    if (state.selectedNodeId) {
+      state.cy.animate({ center: { eles: state.cy.$id(state.selectedNodeId) }, zoom: 2 }, { duration: 300 });
+    } else { state.cy.fit(undefined, 60); }
+    return;
+  }
+
+  // Alt+P — pin
+  if (alt && key === 'p') {
+    e.preventDefault();
+    if (state.selectedNodeId) togglePin(state.selectedNodeId);
+    else toast('select a node first');
+    return;
+  }
+
+  // Alt+H — hide
+  if (alt && key === 'h') {
+    e.preventDefault();
+    if (state.selectedNodeId) hideNode(state.selectedNodeId);
+    else toast('select a node first');
+    return;
+  }
+
+  // Alt+C — copy ID
+  if (alt && key === 'c') {
+    e.preventDefault();
+    if (state.selectedNodeId) {
+      navigator.clipboard.writeText(state.selectedNodeId).catch(()=>{});
+      toast('⧉ ID copied');
+    }
+    return;
+  }
+
+  // Alt+[ — history back
+  if (alt && key === '[') {
+    e.preventDefault();
+    travelHistory(-1);
+    return;
+  }
+
+  // Alt+] — history forward
+  if (alt && key === ']') {
+    e.preventDefault();
+    travelHistory(1);
+    return;
+  }
+});
+
+// Tab cycle through visible nodes
+function cycleNodes(dir) {
+  const nodes = state.cy.nodes();
+  if (!nodes.length) return;
+  const ids = nodes.map(n => n.id());
+  if (!state.selectedNodeId) { selectNode(ids[0]); return; }
+  const idx = ids.indexOf(state.selectedNodeId);
+  const next = ids[(idx + dir + ids.length) % ids.length];
+  selectNode(next);
+  state.cy.animate({ center: { eles: state.cy.$id(next) }, zoom: Math.max(state.cy.zoom(), 1.2) }, { duration: 200 });
+}
+
+// Directional navigation with arrow keys
+function navigateDir(dir) {
+  const nodes = state.cy.nodes();
+  if (!nodes.length) return;
+  if (!state.selectedNodeId) { selectNode(nodes[0].id()); return; }
+  const cur = state.cy.$id(state.selectedNodeId);
+  if (!cur.length) return;
+  const pos = cur.renderedPosition();
+  let best = null, bestDist = Infinity;
+
+  nodes.forEach(n => {
+    if (n.id() === state.selectedNodeId) return;
+    const np = n.renderedPosition();
+    const dx = np.x - pos.x, dy = np.y - pos.y;
+    let valid = false;
+    if (dir === 'up'    && dy < -10 && Math.abs(dx) < Math.abs(dy) * 1.8) valid = true;
+    if (dir === 'down'  && dy >  10 && Math.abs(dx) < Math.abs(dy) * 1.8) valid = true;
+    if (dir === 'left'  && dx < -10 && Math.abs(dy) < Math.abs(dx) * 1.8) valid = true;
+    if (dir === 'right' && dx >  10 && Math.abs(dy) < Math.abs(dx) * 1.8) valid = true;
+    if (valid) {
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist < bestDist) { bestDist = dist; best = n; }
+    }
+  });
+
+  if (best) {
+    selectNode(best.id());
+    state.cy.animate({ center: { eles: best }, zoom: Math.max(state.cy.zoom(), 1.1) }, { duration: 180 });
+  }
+}
+
+// ── KBD HELP ──────────────────────────────────────────────────────────────────
+function toggleKbdHelp() {
+  document.getElementById('kbd-help').classList.toggle('show');
+}
+document.getElementById('kbd-close').addEventListener('click', () => {
+  document.getElementById('kbd-help').classList.remove('show');
+});
+document.getElementById('kbd-help').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('kbd-help')) document.getElementById('kbd-help').classList.remove('show');
+});
+
+// ── GRID ANIMATION ────────────────────────────────────────────────────────────
+let gridOffset = 0;
+function animateGrid() {
+  gridOffset = (gridOffset + 0.08) % 40;
+  document.getElementById('cy-bg').style.backgroundPosition = `${gridOffset}px ${gridOffset}px`;
+  requestAnimationFrame(animateGrid);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+animateParticles();
+initCy();
+animateGrid();
+
+// Small delay for loading overlay
+setTimeout(() => {
+  seedGraph();
+  toast('STRACTURA · ? for shortcuts');
+}, 200);
+</script>
+</body>
+</html>

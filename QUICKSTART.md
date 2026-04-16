@@ -155,12 +155,13 @@ That loop — click, inspect, navigate, open — is the core Structura experienc
 ## 8. Narrow the analysis (optional)
 
 If your project is large, tell Structura where to focus:
+Note: use abosulte paths e.g. No "./src" yes "C:/Projects/structura-v2\src", after updating the project path reload the window
 
 **Settings → search "Structura"**
 
 | Setting | What it does | Example |
 |---------|-------------|---------|
-| `structura.baseDirectory` | Analyse only this subdirectory | `./src` |
+| `structura.baseDirectory` | Analyse only this subdirectory | `C:/Projects/structura-v2/src` |
 | `structura.ignorePatterns` | Skip matching paths | `["node_modules","dist","**/*.test.ts"]` |
 
 Or via `settings.json`:

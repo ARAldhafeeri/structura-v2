@@ -1,0 +1,33 @@
+  /* ── GRAPH ── */
+  #graph-container { flex: 1; position: relative; overflow: hidden; }
+  #cy { width: 100%; height: 100%; background: var(--bg); position: absolute; inset: 0; z-index: 1; }
+
+  #cy-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  #particle-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+
+  .expand-ripple {
+    position: absolute; border-radius: 50%;
+    border: 2px solid var(--accent); pointer-events: none; z-index: 6;
+    animation: ripple-out 0.7s ease-out forwards;
+    transform: translate(-50%, -50%);
+  }
+
+  /* ── DEPTH RING ── */
+  #depth-ring { position: absolute; top: 12px; right: 12px; width: 52px; height: 52px; z-index: 10; }
+
+  /* ── EXPAND BADGE ── */
+  .expand-badge {
+    position: absolute; background: var(--accent); color: var(--bg);
+    font-size: 9px; font-weight: 700; padding: 3px 7px;
+    pointer-events: none; z-index: 7;
+    animation: badge-pop 1.2s ease forwards;
+    transform: translate(-50%, -50%); white-space: nowrap;
+  }

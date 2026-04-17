@@ -12,6 +12,8 @@ export {
 export {
   onInitializeGraph,
   onExpandNode,
+  onExpandNodeImporters,
+  onBuildFullGraph,
   onCollapseNode,
   onSendGraphToWebview,
   onHighlightNodes,

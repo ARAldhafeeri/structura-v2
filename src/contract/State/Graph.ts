@@ -62,7 +62,7 @@ export interface IGraphState {
    * expand node based on expansion policy
    * @param predicate 
    */
-  expandNode(predicate: (node: SemanticNode) => boolean, expansionPolicy: ExpansionPolicy): SemanticNode[];
+  expandNode(predicate: (node: SemanticNode) => boolean, expansionPolicy: ExpansionPolicy, direction?: 'forward' | 'reverse'): SemanticNode[];
   /**
    * Shrink all children of a node ( delete them from user view)
    * @param predicate 

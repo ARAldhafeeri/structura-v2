@@ -8,8 +8,8 @@
 !README.md
 !LICENSE
 
-# Webview HTML
-!src/index.html
+# Webview assets
+!src/webview/**
 
 # oxc-parser native bindings (required at runtime, cannot be bundled by esbuild)
 !node_modules/oxc-parser/**

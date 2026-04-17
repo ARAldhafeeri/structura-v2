@@ -2,13 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { createTask, type PriorityTask, type TaskSubType } from './contract/PriorityTaskQueue.js';
-import { type GraphData } from './graphGenerator.js';
+import type { IStracturaGraphState } from './contract/State/Graph.js';
 
 /** Maps webview keyboard action names to PriorityTaskQueue subTypes. */
 const ACTION_TO_SUBTYPE: Record<string, TaskSubType> = {
-  'select-node':       'select-node',
-  'expand-node':       'expand-node',
-  'collapse-node':     'collapse-node',
+  'select-node':            'select-node',
+  'expand-node':            'expand-node',
+  'expand-node-importers':  'expand-node-importers',
+  'build-full-graph':       'build-full-graph',
+  'collapse-node':          'collapse-node',
   'pin-node':          'pin-node',
   'hide-node':         'hide-node',
   'deselect-all-nodes':'deselect-all-nodes',
@@ -19,9 +21,20 @@ const ACTION_TO_SUBTYPE: Record<string, TaskSubType> = {
 export class GraphPanel {
   private panel: vscode.WebviewPanel | undefined;
   private onEnqueue?: (task: PriorityTask) => void;
+  private onDispose?: () => void;
 
-  constructor(private extensionUri: vscode.Uri, onEnqueue?: (task: PriorityTask) => void) {
+  constructor(
+    private extensionUri: vscode.Uri,
+    onEnqueue?: (task: PriorityTask) => void,
+    onDispose?: () => void,
+  ) {
     this.onEnqueue = onEnqueue;
+    this.onDispose = onDispose;
+  }
+
+  dispose(): void {
+    this.panel?.dispose();
+    this.panel = undefined;
   }
 
   /** Push a message directly into the webview (e.g. graph state updates from handlers). */
@@ -29,13 +42,13 @@ export class GraphPanel {
     this.panel?.webview.postMessage(message);
   }
 
-  show(graphData: GraphData): void {
+  show(graphState: IStracturaGraphState, workspaceRoot: string, activeFilePath?: string): void {
     if (this.panel) {
       this.panel.reveal();
     } else {
       this.panel = vscode.window.createWebviewPanel(
         'structuraGraph',
-        'Code Graph',
+        'S',
         vscode.ViewColumn.Two,
         {
           enableScripts: true,
@@ -45,6 +58,7 @@ export class GraphPanel {
 
       this.panel.onDidDispose(() => {
         this.panel = undefined;
+        this.onDispose?.();
       });
 
       // Handle messages from webview
@@ -60,12 +74,29 @@ export class GraphPanel {
             case 'keyboard':
               this.handleKeyboardMessage(message);
               break;
+            // Graph interaction commands routed directly to the processor.
+            // ACTION_TO_SUBTYPE covers the same set — handle them via command too
+            // so the webview can post { command: 'expand-node', nodeId } directly.
+            case 'expand-node':
+            case 'expand-node-importers':
+            case 'build-full-graph':
+            case 'collapse-node':
+            case 'select-node':
+            case 'pin-node':
+            case 'hide-node':
+            case 'deselect-all-nodes':
+            case 'undo':
+            case 'redo':
+              if (this.onEnqueue) {
+                this.onEnqueue(createTask(message.command as TaskSubType, message));
+              }
+              break;
           }
         }
       );
     }
 
-    this.panel.webview.html = this.getWebviewContent(graphData);
+    this.panel.webview.html = this.getWebviewContent(graphState, workspaceRoot, activeFilePath);
   }
 
   private handleKeyboardMessage(message: { action: string; [key: string]: unknown }): void {
@@ -74,42 +105,79 @@ export class GraphPanel {
     this.onEnqueue(createTask(subType, message));
   }
 
-  private async openFile(relativePath: string, line: number): Promise<void> {
+  /**
+   * SemanticNode ids are encoded as: encodedAbsFilePath:line:col:nodeType
+   * (colons in the path are encoded as %3A by makeId in uitlities/parser.ts).
+   * Decode the file path portion and make it absolute for VS Code to open.
+   */
+  private decodeAbsPath(nodeId: string): string {
+    // Strip the trailing :line:col:nodeType segments (all numeric except last)
+    const match = nodeId.match(/^(.+):(\d+):(\d+):[^:]+$/);
+    if (!match) return nodeId;
+    return match[1].replace(/%3A/g, ':');
+  }
+
+  private async openFile(absOrRelPath: string, line: number): Promise<void> {
     if (!vscode.workspace.workspaceFolders) return;
 
-    const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const config = vscode.workspace.getConfiguration('structura');
-    const baseDir = config.get<string>('baseDirectory') || workspaceRoot;
-    const fullPath = vscode.Uri.file(`${baseDir}/${relativePath}`);
+    // Support both absolute paths (from SemanticNode ids) and legacy relative paths.
+    const fullPath = path.isAbsolute(absOrRelPath)
+      ? vscode.Uri.file(absOrRelPath)
+      : vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, absOrRelPath));
 
     try {
       const document = await vscode.workspace.openTextDocument(fullPath);
       const editor = await vscode.window.showTextDocument(document);
-      
-      // Jump to line
       const position = new vscode.Position(Math.max(0, line - 1), 0);
       editor.selection = new vscode.Selection(position, position);
-      editor.revealRange(
-        new vscode.Range(position, position),
-        vscode.TextEditorRevealType.InCenter
-      );
-    } catch (error) {
-      vscode.window.showErrorMessage(`Could not open file: ${relativePath}`);
+      editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+    } catch {
+      vscode.window.showErrorMessage(`Could not open file: ${absOrRelPath}`);
     }
   }
 
-  private getWebviewContent(graphData: GraphData): string {
-    const htmlPath = path.join(this.extensionUri.fsPath, 'src', 'index.html');
+  private getWebviewContent(graphState: IStracturaGraphState, workspaceRoot: string, activeFilePath?: string): string {
+    const htmlPath = path.join(this.extensionUri.fsPath, 'src', 'webview', 'index.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
 
-    // Inject initial graph data so index.html can populate the graph on load.
-    const injection = `<script>window.__STRACTURA_INITIAL_DATA__ = ${JSON.stringify(graphData)};</script>`;
-    html = html.replace('<script>', `${injection}\n<script>`);
+    // Enrich each SemanticNode with a decoded absolute path so the webview
+    // can send it back as-is in 'openFile' messages.
+    const nodes = graphState.nodes.map(n => ({
+      ...n,
+      path: this.decodeAbsPath(n.id),
+    }));
+
+    const payload = JSON.stringify({ nodes, edges: graphState.edges, workspaceRoot, activeFilePath });
+    const injection = `<script>window.__STRACTURA_INITIAL_DATA__ = ${payload};</script>`;
+
+    // index.html contains the marker <!-- __STRACTURA_INJECT__ --> immediately
+    // before the main <script> block; replace it with the data injection script.
+    if (html.includes('<!-- __STRACTURA_INJECT__ -->')) {
+      html = html.replace('<!-- __STRACTURA_INJECT__ -->', injection);
+    } else {
+      // Fallback: prepend to the first bare <script> tag (no attributes).
+      html = html.replace(/(<script>)/, `${injection}\n$1`);
+    }
+
+    // Inline CSS
+    html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, href) => {
+      const cssPath = path.join(this.extensionUri.fsPath, 'src', 'webview', href);
+      const cssContent = fs.readFileSync(cssPath, 'utf8');
+      return `<style>${cssContent}</style>`;
+    });
+
+    // Inline JS (skip CDN scripts which have full URLs)
+    html = html.replace(/<script src="([^"http][^"]*)"([^>]*)><\/script>/g, (_, src, attrs) => {
+      const jsPath = path.join(this.extensionUri.fsPath, 'src', 'webview', src);
+      const jsContent = fs.readFileSync(jsPath, 'utf8');
+      return `<script${attrs}>${jsContent}</script>`;
+    });
+
     return html;
   }
 
   // Legacy inline HTML kept as fallback (not currently used).
-  private _legacyGetWebviewContent(graphData: GraphData): string {
+  private _legacyGetWebviewContent(graphData: any): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

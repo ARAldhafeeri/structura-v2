@@ -1,0 +1,98 @@
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    height: 44px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+
+  #logo {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 12px rgba(0,200,255,0.6);
+    text-transform: uppercase;
+  }
+
+  #filepath { font-size: 11px; color: var(--text2); flex: 1; }
+  #filepath span { color: var(--accent3); }
+
+  #stats-bar { display: flex; gap: 16px; font-size: 10px; color: var(--text3); }
+  #stats-bar .stat { display: flex; gap: 5px; }
+  #stats-bar .stat .val { color: var(--text2); font-weight: 500; }
+
+  #mode-indicator {
+    font-size: 9px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+  #mode-indicator.active {
+    background: rgba(0,200,255,0.1);
+    box-shadow: var(--glow);
+    animation: none;
+  }
+
+  /* ── MAIN ── */
+  #main { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── STATUS BAR ── */
+  #statusbar {
+    height: 26px; background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 14px; gap: 20px;
+    font-size: 10px; color: var(--text3); flex-shrink: 0;
+  }
+  #statusbar .seg { display: flex; align-items: center; gap: 5px; }
+  #statusbar .seg .val { color: var(--text2); }
+  #statusbar .sep { color: var(--border2); }
+  #msg { flex: 1; color: var(--accent3); font-size: 10px; }
+
+  /* ── CHORD HUD ── */
+  #chord-progress {
+    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+    background: var(--bg3); border: 1px solid var(--accent); color: var(--accent);
+    font-size: 11px; padding: 5px 16px; letter-spacing: 0.1em; text-transform: uppercase;
+    box-shadow: var(--glow); z-index: 3000; pointer-events: none;
+    display: none; animation: chord-in 0.15s ease-out;
+  }
+  #chord-progress.show { display: block; }
+
+  /* ── HISTORY BAR ── */
+  #history-bar { display: flex; align-items: center; gap: 4px; overflow-x: auto; }
+  #history-bar::-webkit-scrollbar { height: 2px; }
+  #history-bar::-webkit-scrollbar-thumb { background: var(--border2); }
+  .history-step { font-size: 9px; color: var(--text3); white-space: nowrap; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+  .history-step:hover { color: var(--text2); }
+  .history-step.current { color: var(--accent3); }

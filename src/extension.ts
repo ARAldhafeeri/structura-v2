@@ -1,13 +1,13 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { createTask } from './contract/PriorityTaskQueue.js';
-import { GraphGenerator } from './graphGenerator.js';
 import { GraphPanel } from './graphPanel.js';
-import { baseDir, config, ignorePatterns } from './config.js';
+import { config, ignorePatterns } from './config.js';
 import { TaskProcessor, TaskProcessorRegistry } from './core/TaskProcessor.js';
 import { buildContext } from './core/buildContext.js';
 import { WebviewPanelController } from './core/WebviewController.js';
 import {
-  onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onCollapseNode,
+  onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onExpandNodeImporters, onBuildFullGraph, onCollapseNode,
   onFileChange, onBatchProcessFiles, onNodeClick, onNodeDoubleClick, onNodeHover,
   onActiveFileChanged, onToggleGraph, onOpenFileFromNode, onExpandSelectedNode,
   onDeselectAllNodes, onViewportChange, onNodeDragDrop, onSelectNode, onPinNode, onHideNode,
@@ -46,6 +46,8 @@ function buildProcessor(): TaskProcessor {
   reg('graph-construction',   'build-initial-graph',    onBuildInitialGraph);
   reg('graph-construction',   'parse-file',             onParseFile);
   reg('graph-construction',   'expand-node',            onExpandNode);
+  reg('graph-construction',   'expand-node-importers',  onExpandNodeImporters);
+  reg('graph-construction',   'build-full-graph',       onBuildFullGraph);
   reg('graph-construction',   'collapse-node',          onCollapseNode);
   reg('graph-construction',   'file-change',            onFileChange);
   reg('graph-construction',   'batch-process-files',    onBatchProcessFiles);
@@ -106,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
     100
   );
   statusBarItem.text = '$(graph) Structura';
-  statusBarItem.tooltip = 'Show Code Graph';
+  statusBarItem.tooltip = 'Graph active file (Ctrl+Alt+G)';
   statusBarItem.command = 'structura.showGraph';
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
@@ -115,54 +117,73 @@ export function activate(context: vscode.ExtensionContext) {
   const showGraphCommand = vscode.commands.registerCommand(
     'structura.showGraph',
     async () => {
-      if (!vscode.workspace.workspaceFolders) {
-        vscode.window.showErrorMessage('No workspace folder open');
+      // Always graph the active tab — that's the entry point for the developer.
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        vscode.window.showErrorMessage('Structura: No active tab open. Open a file first.');
         return;
       }
 
-      try {       
+      const activeFilePath = activeEditor.document.uri.fsPath;
+      const rootDir = path.dirname(activeFilePath);
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? rootDir;
 
-        // Show progress
+      try {
+        // If the panel is already open, add the focused file's node to the
+        // existing graph instead of destroying and rebuilding.
+        if (graphPanel && ctx.webview) {
+          await processor.process(createTask('parse-file', { filePath: activeFilePath }));
+          const programId = `${activeFilePath.replace(/:/g, '%3A')}:1:0:Program`;
+          const programNode = ctx.graph.getNode(programId);
+          if (programNode) {
+            const edges = ctx.graph.getEdges(programId);
+            ctx.webview.postMessage({ command: 'nodesAdded', nodes: [programNode], edges });
+          }
+          return;
+        }
+
         await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: 'Generating code graph...',
+            title: `Graphing ${path.basename(activeFilePath)}...`,
             cancellable: false,
           },
           async () => {
-            const generator = new GraphGenerator(baseDir as string, ignorePatterns);
-            const graphData = await generator.generate();
+            // Clear stale graph data before rebuilding.
+            ctx.graph.clear();
 
-            if (!graphPanel) {
-              graphPanel = new GraphPanel(context.extensionUri, (task) => {
-                processor.process(task);
-              });
-              // Wire the webview into ctx so processor handlers can post messages.
-              ctx.webview = new WebviewPanelController(graphPanel);
-            }
-            graphPanel.show(graphData);
-          
+            await processor.process(createTask('build-initial-graph', {
+              rootDir,
+              depth: 1, 
+              ignorePatterns,
+            }));
+
+            graphPanel = new GraphPanel(
+              context.extensionUri,
+              (task) => { processor.process(task); },
+              () => {
+                // Called when the user closes the panel.
+                graphPanel = undefined;
+                ctx.webview = undefined;
+              },
+            );
+            // Wire the webview into ctx so processor handlers can post messages.
+            ctx.webview = new WebviewPanelController(graphPanel);
+
+            graphPanel.show(ctx.graph.state, workspaceRoot, activeFilePath);
           }
         );
       } catch (error) {
-        vscode.window.showErrorMessage(
-          `Failed to generate graph: ${error}`
-        );
+        vscode.window.showErrorMessage(`Structura: Failed to generate graph: ${error}`);
       }
     }
   );
 
-  // Register refresh command
+  // Register refresh command — re-runs showGraph so the active tab is always the source.
   const refreshCommand = vscode.commands.registerCommand(
-  'structura.refreshGraph',
-  async () => {
-    if (graphPanel) {
-      vscode.commands.executeCommand('structura.showGraph');
-    } else {
-      vscode.window.showInformationMessage('No graph open to refresh.');
-    }
-  }
-);
+    'structura.refreshGraph',
+    () => vscode.commands.executeCommand('structura.showGraph'),
+  );
 
   context.subscriptions.push(showGraphCommand, refreshCommand);
 }

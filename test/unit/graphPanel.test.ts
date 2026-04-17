@@ -5,7 +5,7 @@ import { readFile } from "fs/promises";
 
 // Resolve the HTML path relative to the compiled test location:
 // dist/test/unit  →  ../../..  →  project root  →  src/index.html
-const HTML_PATH = path.join(__dirname, "..", "..", "..", "src", "index.html");
+const HTML_PATH = path.join(__dirname, "..", "..", "..", "src", "webview", "index.html");
 const html = fs.readFileSync(HTML_PATH, "utf-8");
 
 suite("GraphPanel — src/index.html", () => {

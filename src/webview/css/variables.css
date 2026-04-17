@@ -1,0 +1,23 @@
+:root {
+    --bg: #050810;
+    --bg2: #080d1a;
+    --bg3: #0c1221;
+    --panel: #0a0f1e;
+    --border: rgba(0,200,255,0.12);
+    --border2: rgba(0,200,255,0.25);
+    --accent: #00c8ff;
+    --accent2: #7b2fff;
+    --accent3: #00ffb2;
+    --warn: #ff6b35;
+    --text: #c8daf0;
+    --text2: #7a9bbf;
+    --text3: #3d5a7a;
+    --node-def: #00c8ff;
+    --node-call: #7b2fff;
+    --node-import: #00ffb2;
+    --node-export: #ff6b35;
+    --node-type: #f0c040;
+    --node-ref: #a08060;
+    --glow: 0 0 12px rgba(0,200,255,0.4);
+    --glow2: 0 0 20px rgba(0,200,255,0.6);
+  }

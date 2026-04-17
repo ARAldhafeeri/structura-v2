@@ -26,14 +26,16 @@ import type { Queue, Worker } from "bullmq";
  */
 
 // TASK SUBTYPES (kebab-case)
-export type GraphConstructionSubType = 
+export type GraphConstructionSubType =
   | "initialize-graph"
   | "build-initial-graph"
   | "parse-file"
   | "expand-node"
+  | "expand-node-importers"
   | "collapse-node"
   | "file-change"
-  | "batch-process-files";
+  | "batch-process-files"
+  | "build-full-graph";
 
 export type UserInteractionSubType =
   | "node-click"
@@ -106,9 +108,11 @@ export const GRAPH_CONSTRUCTION_SUBTYPES = {
   BUILD_INITIAL_GRAPH: "build-initial-graph",
   PARSE_FILE: "parse-file",
   EXPAND_NODE: "expand-node",
+  EXPAND_NODE_IMPORTERS: "expand-node-importers",
   COLLAPSE_NODE: "collapse-node",
   FILE_CHANGE: "file-change",
-  BATCH_PROCESS_FILES: "batch-process-files"
+  BATCH_PROCESS_FILES: "batch-process-files",
+  BUILD_FULL_GRAPH: "build-full-graph"
 } as const;
 
 export const USER_INTERACTION_SUBTYPES = {
@@ -174,10 +178,12 @@ export const SUBTYPE_TO_CATEGORY: Record<TaskSubType, TaskCategory> = {
   "build-initial-graph": "graph-construction",
   "parse-file": "graph-construction",
   "expand-node": "graph-construction",
+  "expand-node-importers": "graph-construction",
   "collapse-node": "graph-construction",
   "file-change": "graph-construction",
   "batch-process-files": "graph-construction",
-  
+  "build-full-graph": "graph-construction",
+
   // User Interaction
   "node-click": "user-interaction",
   "node-double-click": "user-interaction",
@@ -236,10 +242,12 @@ export const SUBTYPE_DEFAULT_PRIORITIES: Record<TaskSubType, number> = {
   "build-initial-graph": 95,
   "parse-file": 90,
   "expand-node": 85,
+  "expand-node-importers": 85,
   "collapse-node": 80,
   "file-change": 90,
   "batch-process-files": 70,
-  
+  "build-full-graph": 60,
+
   // User Interaction (Immediate feedback)
   "node-click": 99,
   "node-double-click": 98,

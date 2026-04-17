@@ -10,7 +10,7 @@ import { isDirectoryDepthReached } from '../uitlities/directory.js';
 type DirectoryIdentifierValues = "F" | "D";
 type DirectoryIdentifierKeys = "FILE" | "DIR";
 
-const DIRECTORY_IDENTIFIERS : Record<DirectoryIdentifierKeys,DirectoryIdentifierValues> = {
+export const DIRECTORY_IDENTIFIERS : Record<DirectoryIdentifierKeys,DirectoryIdentifierValues> = {
     FILE: "F",
     DIR: "D"
 }

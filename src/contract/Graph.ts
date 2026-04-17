@@ -138,22 +138,6 @@ export interface SemanticEdge {
   weight: number;
 }
 
-export interface SemanticGraph {
-  /** All nodes in the graph */
-  nodes: Map<string, SemanticNode>;
-  
-  /** Adjacency list of edges (sourceId -> targetId) */
-  edges: Map<string, SemanticEdge>;
-  
-  /** Reverse edges for bidirectional traversal */
-  reverseEdges: Map<string, SemanticEdge>;
-  
-  /** File path this graph represents */
-  filePath: string;
-  
-  /** Source code checksum for cache invalidation */
-  sourceHash?: string;
-}
 
 export interface NodeFilter {
   /** Filter by intent type */

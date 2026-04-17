@@ -58,16 +58,17 @@ This revolutionary approach not only helps humans understand code faster but als
 
 ### 2. **Keyboard-First Navigation**
 
-Inspired by Neovim, Structura uses a single VS Code shortcut to open the graph, then pure single-key Vim-style bindings once the panel is focused:
+Structura uses a single VS Code shortcut to open the graph, then chord shortcuts (`Ctrl+Alt+*`) once the panel is focused:
 
-- `Ctrl+Alt+G` (`Cmd+Alt+G` on Mac) - Open/focus graph panel
-- `h / j / k / l` - Navigate nodes (left / down / up / right)
-- `e` - Expand selected node
-- `o` - Open selected file in editor
-- `[ / ]` - Undo / redo graph history
-- `q` / `Esc` - Clear selection
+- `Ctrl+Alt+G` (`Cmd+Alt+G` on Mac) — Graph the active tab
+- `Tab` / `Shift+Tab` — Cycle through visible nodes
+- `↑ ↓ ← →` — Jump to nearest node in that direction
+- `Ctrl+Alt+E` — Expand selected node (depth 1)
+- `Ctrl+Alt+U` — Reveal who imports this node (reverse traversal)
+- `Enter` — Open selected file in editor
+- `Esc` — Deselect / close inspector panel
 
-All shortcuts are complemented by intuitive right-click context menus.
+All shortcuts are also available through the right-click context menu.
 
 ### 3. **Intelligent State Management**
 
@@ -166,16 +167,21 @@ Structura: Show Code Graph
 - **Scroll** → Zoom in/out
 
 #### Keyboard Controls
-- **h / j / k / l** → Navigate nodes (left / down / up / right)
-- **e** → Expand selected node
-- **c** → Collapse selected node
-- **o** → Open selected file in editor
-- **p** → Pin selected node
-- **d** → Hide selected node
-- **r** → Refresh graph
-- **f** → Fit graph to screen
-- **[ / ]** → Undo / redo
-- **Esc** or **q** → Clear selection
+- **Tab** / **Shift+Tab** → Select next / previous node
+- **↑ ↓ ← →** → Jump to nearest node in that direction
+- **Enter** → Open selected file in editor
+- **Space** → Fit / centre the graph
+- **Esc** → Deselect / close node inspector
+- **Ctrl+Alt+E** → Expand selected node (depth 1)
+- **Ctrl+Alt+D** → Expand deep (depth 2)
+- **Ctrl+Alt+U** → Show who imports this node
+- **Ctrl+Alt+F** → Focus / zoom to selected node
+- **Ctrl+Alt+P** → Pin / unpin selected node
+- **Ctrl+Alt+H** → Hide selected node
+- **Ctrl+Alt+[** → Time-travel back
+- **Ctrl+Alt+]** → Time-travel forward
+- **1–9** → Show all nodes up to depth N
+- **?** → Toggle keyboard shortcut help
 
 ### Graph Exploration Workflow
 
@@ -188,12 +194,11 @@ Structura: Show Code Graph
 ### Advanced Features
 
 #### History Navigation
-- `[` - Go back in graph history (undo)
-- `]` - Go forward in graph history (redo)
-- `Ctrl+Z` / `Ctrl+Shift+Z` - Undo / redo
+- `Ctrl+Alt+[` — Go back in graph exploration history
+- `Ctrl+Alt+]` — Go forward in graph exploration history
 
 #### Refreshing
-Click the **Refresh** button in the graph header to regenerate after code changes, or enable auto-refresh in settings.
+Press `Ctrl+Alt+G` again at any time to destroy the current graph and rebuild it fresh from the active editor tab.
 
 ---
 
@@ -254,37 +259,45 @@ Automatically refresh graph when files change (default: true)
 ### VS Code (global)
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+G` / `Cmd+Alt+G` | Open / focus the graph panel |
+| `Ctrl+Alt+G` / `Cmd+Alt+G` | Graph the active editor tab |
 
 ### In-graph — Navigation
-| Key | Action |
-|-----|--------|
-| `h` | Move focus left |
-| `j` | Move focus down |
-| `k` | Move focus up |
-| `l` | Move focus right |
+| Shortcut | Action |
+|----------|--------|
+| `Tab` | Select next visible node |
+| `Shift+Tab` | Select previous visible node |
+| `↑` `↓` `←` `→` | Jump to nearest node in that direction |
+| `Space` | Fit / centre entire graph |
+| `Esc` | Deselect all / close node inspector |
+
+### In-graph — Expansion
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Alt+E` | Expand selected node (depth 1) |
+| `Ctrl+Alt+D` | Expand deep (depth 2) |
+| `Ctrl+Alt+U` | Reveal who imports this node |
+| `1` – `9` | Show all nodes up to depth N |
 
 ### In-graph — Node Actions
-| Key | Action |
-|-----|--------|
-| `e` | Expand selected node |
-| `c` | Collapse selected node |
-| `o` | Open selected file in editor |
-| `p` | Pin selected node |
-| `d` | Hide selected node |
+| Shortcut | Action |
+|----------|--------|
+| `Enter` | Open selected file in editor |
+| `Ctrl+Alt+F` | Focus / zoom to selected node |
+| `Ctrl+Alt+P` | Pin / unpin selected node |
+| `Ctrl+Alt+H` | Hide selected node |
 
-### In-graph — Graph Controls
-| Key | Action |
-|-----|--------|
-| `r` | Refresh graph |
-| `f` | Fit graph to screen |
-| `[` | Undo |
-| `]` | Redo |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` | Redo |
-| `Esc` / `q` | Clear selection |
+### In-graph — History
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Alt+[` | Time-travel back |
+| `Ctrl+Alt+]` | Time-travel forward |
 
-> **Note:** In-graph shortcuts are single keys — no modifier needed. They activate when the graph panel has focus. All VS Code shortcuts can be rebound via **Preferences → Keyboard Shortcuts**.
+### In-graph — Help
+| Shortcut | Action |
+|----------|--------|
+| `?` | Toggle keyboard shortcut overlay |
+
+> **Note:** All in-graph shortcuts require the graph panel to have focus. Right-click any node for the same actions via context menu.
 
 ---
 

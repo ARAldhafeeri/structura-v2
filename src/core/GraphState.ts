@@ -258,6 +258,7 @@ export class GraphState implements IGraphState {
   expandNode(
     predicate: (node: SemanticNode) => boolean,
     policy: ExpansionPolicy,
+    direction: 'forward' | 'reverse' = 'forward',
   ): SemanticNode[] {
     const seeds = this.getAllNodes().filter(predicate);
     if (!seeds.length) return [];
@@ -269,6 +270,12 @@ export class GraphState implements IGraphState {
 
     let frontier = seeds.map((n) => n.id);
 
+    // Forward: follow outgoing edges (what the node imports/uses).
+    // Reverse: follow incoming edges (who imports/uses this node).
+    const index = direction === 'reverse' ? this.toIndex : this.fromIndex;
+    const neighborId = (edge: SemanticEdge) =>
+      direction === 'reverse' ? edge.from : edge.to;
+
     for (let depth = 1; depth <= maxDepth && frontier.length; depth++) {
       const nextFrontier: string[] = [];
       let levelCount = 0;
@@ -276,7 +283,7 @@ export class GraphState implements IGraphState {
       for (const nodeId of frontier) {
         if (levelCount >= maxNodesPerLevel) break;
 
-        const outKeys = this.fromIndex.get(nodeId);
+        const outKeys = index.get(nodeId);
         if (!outKeys?.size) continue;
 
         // Collect, filter, sort candidates for this source node
@@ -284,7 +291,7 @@ export class GraphState implements IGraphState {
         for (const key of outKeys) {
           const edge = this.edgeMap.get(key);
           if (!edge) continue;
-          const target = this.nodeMap.get(edge.to);
+          const target = this.nodeMap.get(neighborId(edge));
           if (!target) continue;
           if (stopOnCycles && visited.has(target.id)) continue;
           if (target.weight < weightThreshold) continue;

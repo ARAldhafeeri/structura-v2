@@ -107,7 +107,13 @@ export const onExpandSelectedNode: TaskProcessorHandler = async (task, ctx) => {
 
   const expanded = ctx.graph.expandNode((n) => n.id === nodeId, policy);
   for (const node of expanded) ctx.cache.set(node.id, node);
-  ctx.webview?.postMessage({ command: "nodesAdded", nodes: expanded });
+
+  const relevantIds = new Set<string>([nodeId, ...expanded.map(n => n.id)]);
+  const edges = ctx.graph.getEdges().filter(
+    (e) => relevantIds.has(e.from) && relevantIds.has(e.to),
+  );
+
+  ctx.webview?.postMessage({ command: "nodesAdded", nodes: expanded, edges });
   return true;
 };
 

@@ -5,6 +5,8 @@ import { type ScopeKind } from "../uitlities/walker.js";
 // import all visitors
 import {
   buildAdditionalVisitors,
+  buildAdditionalExitVisitors,
+  fileProgramId,
   type VisitorContext,
   type ImportEdgeStub,
 } from "./Visitors.js";
@@ -44,11 +46,17 @@ export const extractSemanticNodes = (
     stack[stack.length - 1] as SemanticNodeMetadata["scope"];
 
   // Shared context passed into every visitor factory.
-  const ctx: VisitorContext = { filePath, nodes, edges, importStubs, loc, currentScope };
+  const ctx: VisitorContext = {
+    filePath, nodes, edges, importStubs, loc, currentScope,
+    // Initialise with the file's Program node so module-level definitions
+    // always have a valid parent before any scope-creating visitor runs.
+    parentIdStack: [fileProgramId(filePath)],
+  };
 
   const visitors = buildAdditionalVisitors(ctx);
+  const exitVisitors = buildAdditionalExitVisitors(ctx);
 
-  walkScoped(ast, visitors);
+  walkScoped(ast, visitors, ["module"], exitVisitors);
 
   return { nodes, edges, importStubs };
 };

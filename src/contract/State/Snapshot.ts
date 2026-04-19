@@ -1,4 +1,4 @@
-import type { GraphData } from "../../graphGenerator.js";
+import type { GraphPanel } from "../../graphPanel.js";
 
 
 /**
@@ -51,5 +51,5 @@ export interface IStracturaSnapshotState {
   // persist snap shot to storge
   persist(key: string, data: any): Promise<string>
   // get a snapshot frome file system
-  getSnapshot(key: string): Promise<GraphData>;
+  getSnapshot(key: string): Promise<GraphPanel>;
 }

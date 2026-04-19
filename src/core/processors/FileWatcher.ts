@@ -58,7 +58,7 @@ export const onFileChange: TaskProcessorHandler = async (task, ctx) => {
   }
 
   const ast = parseSync(filePath, source, { sourceType: "module" });
-  const freshNodes = extractSemanticNodes(ast.program, filePath, source);
+  const {nodes: freshNodes, edges , importStubs} = extractSemanticNodes(ast.program, filePath, source);
 
   // Remove stale nodes for this file
   const staleIds = ctx.graph.getAllNodes()
@@ -108,7 +108,7 @@ export const onPrefetchFiles: TaskProcessorHandler = async (task, ctx) => {
       try {
         const source = await fs.readFile(fp, "utf-8");
         const ast = parseSync(fp, source, { sourceType: "module" });
-        const nodes = extractSemanticNodes(ast.program, fp, source);
+        const {nodes, edges, importStubs} = extractSemanticNodes(ast.program, fp, source);
         ctx.graph.addNodes(nodes);
         for (const n of nodes) ctx.cache.set(n.id, n);
       } catch {

@@ -64,9 +64,10 @@ export const onExpandDirectory: TaskProcessorHandler = async (task, ctx) => {
       try {
         const source = await fs.readFile(filePath, "utf-8");
         const ast = parseSync(filePath, source, { sourceType: "module" });
-        const nodes = extractSemanticNodes(ast.program, filePath, source);
+        const {nodes, edges, importStubs} = extractSemanticNodes(ast.program, filePath, source);
         for (const node of nodes) ctx.cache.set(node.id, node);
         freshNodes.push(...nodes);
+        
       } catch {
         // skip unparseable files silently
       }
@@ -74,11 +75,13 @@ export const onExpandDirectory: TaskProcessorHandler = async (task, ctx) => {
   );
 
   if (freshNodes.length) {
+    const drivenEdges = deriveEdges(ctx.graph.getAllNodes());
     ctx.graph.addNodes(freshNodes);
-    ctx.graph.addEdges(deriveEdges(ctx.graph.getAllNodes()));
+    ctx.graph.addEdges(drivenEdges);
+    ctx.webview?.postMessage({ command: "nodesAdded", nodes: freshNodes , edges: drivenEdges});
+
   }
 
-  ctx.webview?.postMessage({ command: "nodesAdded", nodes: freshNodes });
   return true;
 };
 

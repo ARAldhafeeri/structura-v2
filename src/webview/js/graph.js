@@ -83,6 +83,7 @@ function runLayout(fit = false, focusId = null, animate = true, onDone = null) {
   const n = state.cy.nodes().length;
   if (n === 0) { if (onDone) onDone(); return; }
 
+  // For incremental updates, use a faster layout
   const base = n <= 4 ? {
     name: 'concentric',
     concentric: node => node.data('weight'),
@@ -92,31 +93,35 @@ function runLayout(fit = false, focusId = null, animate = true, onDone = null) {
   } : {
     name: 'cose',
     randomize: false,
-    nodeRepulsion: () => 9000,
-    edgeElasticity: () => 120,
-    gravity: 0.2,
-    nestingFactor: 1.1,
-    componentSpacing: 60,
-    coolingFactor: 0.97,
-    initialTemp: 350,
+    nodeRepulsion: () => 4000, // Reduced for better incremental updates
+    edgeElasticity: () => 100,
+    gravity: 0.25,
+    nestingFactor: 1.0,
+    componentSpacing: 50,
+    coolingFactor: 0.95,
+    initialTemp: 200, // Lower temp for incremental updates
     fit,
-    padding: 70,
+    padding: 60,
+    // Important: don't animate if we're doing custom animations
+    animate: false, // Always false - we handle animations separately
   };
 
   const opts = {
     ...base,
-    animate,
-    animationDuration: animate ? (n <= 4 ? 450 : 550) : 0,
-    animationEasing: 'ease-in-out-cubic',
+    animate: false, // Disable built-in animation
   };
 
   const layout = state.cy.layout(opts);
 
-  // Attach callbacks BEFORE run() — critical for animate:false (synchronous layoutstop).
-  if (onDone)   layout.one('layoutstop', onDone);
-  if (focusId)  layout.one('layoutstop', () => {
+  if (onDone) layout.one('layoutstop', onDone);
+  if (focusId) layout.one('layoutstop', () => {
     const el = state.cy.$id(focusId);
-    if (el.length) state.cy.animate({ center: { eles: el }, zoom: Math.max(state.cy.zoom(), 1.3) }, { duration: 280 });
+    if (el.length) {
+      state.cy.animate({ 
+        center: { eles: el }, 
+        zoom: Math.max(state.cy.zoom(), 1.3) 
+      }, { duration: 280 });
+    }
   });
 
   layout.run();

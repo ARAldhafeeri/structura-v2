@@ -44,11 +44,16 @@ export type ScopedVisitor = Record<
 /**
  * Walk the AST while maintaining a scope stack.
  * Function / class / block boundaries automatically push and pop scopes.
+ *
+ * @param exitVisitor  Optional map of node-type → callback invoked *after* all
+ *                     children have been visited (and after the scope is popped).
+ *                     Used by the edge-driving layer to pop the parentIdStack.
  */
 export const walkScoped = (
   node: any,
   visitor: ScopedVisitor,
-  scopeStack: ScopeKind[] = ["module"]
+  scopeStack: ScopeKind[] = ["module"],
+  exitVisitor?: ScopedVisitor
 ): void => {
   if (!node || typeof node !== "object") return;
 
@@ -70,13 +75,18 @@ export const walkScoped = (
   for (const key of Object.keys(node)) {
     const child = node[key];
     if (Array.isArray(child)) {
-      child.forEach((c) => walkScoped(c, visitor, scopeStack));
+      child.forEach((c) => walkScoped(c, visitor, scopeStack, exitVisitor));
     } else if (child && typeof child.type === "string") {
-      walkScoped(child, visitor, scopeStack);
+      walkScoped(child, visitor, scopeStack, exitVisitor);
     }
   }
 
   if (newScope) scopeStack.pop();
+
+  // Exit hook: called after all children and after the scope is restored.
+  if (exitVisitor?.[node.type]) {
+    exitVisitor[node.type](node, scopeStack);
+  }
 };
 
 /**

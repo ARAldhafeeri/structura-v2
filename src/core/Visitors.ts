@@ -47,6 +47,19 @@ export interface VisitorContext {
   importStubs: ImportEdgeStub[];
   loc: (span: any) => Loc;
   currentScope: (stack: readonly ScopeKind[]) => SemanticNodeMetadata["scope"];
+  /**
+   * Mutable stack of parent semantic node IDs.
+   * Initialised with [fileProgramId(filePath)] so every module-level
+   * definition's edge defaults to the file Program node.
+   * Scope-creating visitors (Class, Function, Method, Interface, Enum)
+   * push their own ID on entry and pop it via the exit-visitor mechanism.
+   */
+  parentIdStack: string[];
+}
+
+/** Convenience: the ID of the nearest enclosing semantic node. */
+function parentId(ctx: VisitorContext): string {
+  return ctx.parentIdStack[ctx.parentIdStack.length - 1];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,8 +72,9 @@ export interface VisitorContext {
  * already handled by `variableDeclaratorVisitor`.
  */
 export const variableDeclarationVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     for (const decl of node.declarations ?? []) {
       if (!decl.id) continue;
       // Skip arrow / function expressions – those are captured by variableDeclaratorVisitor
@@ -72,8 +86,10 @@ export const variableDeclarationVisitor =
         continue;
 
       const l = loc(decl.span ?? node.span);
+      const nodeId = makeId(filePath, l, "VariableDeclarator");
+      edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
       nodes.push({
-        id: makeId(filePath, l, "VariableDeclarator"),
+        id: nodeId,
         intent: "definition",
         name: ident(decl.id),
         location: l,
@@ -92,13 +108,17 @@ export const variableDeclarationVisitor =
  * Extract generator function declarations (`function* foo() {}`).
  */
 export const generatorFunctionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
     if (!node.generator) return;
     if (!node.id) return;
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "GeneratorFunction");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
-      id: makeId(filePath, l, "GeneratorFunction"),
+      id: nodeId,
       intent: "definition",
       name: ident(node.id),
       location: l,
@@ -124,8 +144,9 @@ export const generatorFunctionVisitor =
  *   class Foo { bar = 1; #priv = true; }
  */
 export const propertyDefinitionVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
     const name =
       node.key?.name ?? node.key?.value ?? serializeExpr(node.key) ?? "unknown";
@@ -137,8 +158,10 @@ export const propertyDefinitionVisitor =
         ? "protected"
         : "public";
 
+    const nodeId = makeId(filePath, l, "PropertyDefinition");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "PropertyDefinition"),
+      id: nodeId,
       intent: "definition",
       name,
       location: l,
@@ -158,11 +181,14 @@ export const propertyDefinitionVisitor =
  * Extract static class blocks (`static { ... }`).
  */
 export const staticBlockVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "StaticBlock");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "StaticBlock"),
+      id: nodeId,
       intent: "definition",
       name: "static",
       location: l,
@@ -185,16 +211,18 @@ export const staticBlockVisitor =
  * Captures component name and whether it is a custom component vs. DOM tag.
  */
 export const jsxOpeningElementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const rawName =
       node.name && (node.name.name || serializeExpr(node.name)) || "unknown";
 
     const isCustom = /^[A-Z]/.test(rawName) || rawName.includes(".");
-
+    const nodeId = makeId(filePath, l, "JSXOpeningElement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "JSXOpeningElement"),
+      id: nodeId,
       intent: "call",
       name: rawName,
       target: rawName,
@@ -260,12 +288,15 @@ export const jsxSpreadAttributeVisitor =
  * These are common in GraphQL, styled-components, etc.
  */
 export const taggedTemplateExpressionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const target = resolveCallee(node.tag);
+    const nodeId = makeId(filePath, l, "TaggedTemplateExpression");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TaggedTemplateExpression"),
+      id: nodeId,
       intent: "call",
       name: target,
       target,
@@ -284,16 +315,18 @@ export const taggedTemplateExpressionVisitor =
  * Useful for identifying async data-flow boundaries.
  */
 export const awaitExpressionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const target =
       node.argument?.type === "CallExpression"
         ? resolveCallee(node.argument.callee)
         : serializeExpr(node.argument) ?? "unknown";
-
+    const nodeId = makeId(filePath, l, "AwaitExpression");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "AwaitExpression"),
+      id: nodeId,
       intent: "call",
       name: target,
       target,
@@ -311,11 +344,14 @@ export const awaitExpressionVisitor =
  * Extract `yield` expressions inside generators.
  */
 export const yieldExpressionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "YieldExpression");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "YieldExpression"),
+      id: nodeId,
       intent: "call",
       name: "yield",
       location: l,
@@ -333,16 +369,19 @@ export const yieldExpressionVisitor =
  * Useful for tracking mutation of module-level variables.
  */
 export const assignmentExpressionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
     // Only capture module/class-level assignments to reduce noise
-    const scope = currentScope(stack);
+    const scope = ctx.currentScope(stack);
     if (scope !== "module" && scope !== "class") return;
 
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
     const name = serializeExpr(node.left) ?? "unknown";
+    const nodeId = makeId(filePath, l, "AssignmentExpression");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "AssignmentExpression"),
+      id: nodeId,
       intent: "definition",
       name,
       location: l,
@@ -389,11 +428,15 @@ export const importExpressionVisitor =
  *   namespace Foo { ... }   /   module Foo { ... }
  */
 export const tsModuleDeclarationVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "TSModuleDeclaration");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
-      id: makeId(filePath, l, "TSModuleDeclaration"),
+      id: nodeId,
       intent: "definition",
       name: node.id?.value ?? node.id?.name ?? ident(node.id),
       location: l,
@@ -486,11 +529,14 @@ export const tsDeclareStatementVisitor =
  *   interface Foo { new(x: number): Foo; }
  */
 export const tsConstructSignatureDeclarationVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "TSConstructSignatureDeclaration");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSConstructSignatureDeclaration"),
+      id: nodeId,
       intent: "definition",
       name: "new",
       location: l,
@@ -510,11 +556,14 @@ export const tsConstructSignatureDeclarationVisitor =
  *   interface Fn { (x: number): void; }
  */
 export const tsCallSignatureDeclarationVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "TSCallSignatureDeclaration");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSCallSignatureDeclaration"),
+      id: nodeId,
       intent: "definition",
       name: "call",
       location: l,
@@ -534,11 +583,14 @@ export const tsCallSignatureDeclarationVisitor =
  *   interface Foo { [key: string]: number; }
  */
 export const tsIndexSignatureVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "TSIndexSignature");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSIndexSignature"),
+      id: nodeId,
       intent: "definition",
       name: "index",
       location: l,
@@ -560,12 +612,15 @@ export const tsIndexSignatureVisitor =
  *   interface Foo { bar(x: number): void; }
  */
 export const tsMethodSignatureVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
     const name = node.key?.name ?? node.key?.value ?? serializeExpr(node.key) ?? "unknown";
+    const nodeId = makeId(filePath, l, "TSMethodSignature");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSMethodSignature"),
+      id: nodeId,
       intent: "definition",
       name,
       location: l,
@@ -587,12 +642,15 @@ export const tsMethodSignatureVisitor =
  *   interface Foo { bar: number; readonly baz?: string; }
  */
 export const tsPropertySignatureVisitor =
-  ({ filePath, nodes, loc }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, _stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc } = ctx;
     const l = loc(node.span);
     const name = node.key?.name ?? node.key?.value ?? serializeExpr(node.key) ?? "unknown";
+    const nodeId = makeId(filePath, l, "TSPropertySignature");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSPropertySignature"),
+      id: nodeId,
       intent: "definition",
       name,
       location: l,
@@ -818,13 +876,13 @@ export const programVisitor =
  * @returns 
  */
 export const exportNamedDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
-    const programId = fileProgramId(filePath);
     for (const specifier of node.specifiers ?? []) {
       const nodeId = makeId(filePath, l, "ExportNamedDeclaration");
-      edges.push({ from: programId, to: nodeId, weight: 1 });
+      edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
       nodes.push({
         id: nodeId,
         intent: "export",
@@ -847,8 +905,9 @@ export const exportNamedDeclarationVisitor =
  * @returns 
  */
 export const exportDefaultDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const name =
       node.declaration?.name ??
@@ -857,7 +916,7 @@ export const exportDefaultDeclarationVisitor =
       "default";
     const nodeId = makeId(filePath, l, "ExportDefaultDeclaration");
 
-    edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
 
     nodes.push({
       id: nodeId,
@@ -906,16 +965,17 @@ export const exportAllDeclarationVisitor =
  */
 
 export const importDeclarationVisitor =
-  ({ filePath, nodes, edges, importStubs, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, importStubs, loc, currentScope } = ctx;
     const l = loc(node.span);
     const importKind = node.importKind ?? "value";
     const source: string | undefined = node.source?.value;
     const programId = fileProgramId(filePath);
     const importNodeId = makeId(filePath, l, "ImportDeclaration");
 
-    // Emit contains edge: file Program → this import declaration (once per ImportDeclaration).
-    edges.push({ from: programId, to: importNodeId, weight: 1 });
+    // Emit contains edge: parent (always Program at module level) → this import declaration.
+    edges.push({ from: parentId(ctx), to: importNodeId, weight: 1 });
 
     // Relative imports are explorable (same source tree).
     // Package imports (no leading ".") are display-only — engine never reads node_modules.
@@ -976,11 +1036,14 @@ export const importDeclarationVisitor =
  * @returns 
  */
 export const ifStatementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "IfStatement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "IfStatement"),
+      id: nodeId,
       intent: "definition",
       name: "if",
       location: l,
@@ -998,11 +1061,14 @@ export const ifStatementVisitor =
  * @returns 
  */
 export const forStatementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "ForStatement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "ForStatement"),
+      id: nodeId,
       intent: "definition",
       name: "for",
       location: l,
@@ -1021,11 +1087,14 @@ export const forStatementVisitor =
  * @returns 
  */
 export const whileStatementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "WhileStatement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "WhileStatement"),
+      id: nodeId,
       intent: "definition",
       name: "while",
       location: l,
@@ -1043,11 +1112,14 @@ export const whileStatementVisitor =
  * @returns 
  */
 export const switchStatementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "SwitchStatement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "SwitchStatement"),
+      id: nodeId,
       intent: "definition",
       name: "switch",
       location: l,
@@ -1065,11 +1137,14 @@ export const switchStatementVisitor =
  * @returns 
  */
 export const tryStatementVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
+    const nodeId = makeId(filePath, l, "TryStatement");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TryStatement"),
+      id: nodeId,
       intent: "definition",
       name: "try",
       location: l,
@@ -1087,12 +1162,15 @@ export const tryStatementVisitor =
  * More Expressions
  */
 export const newExpressionVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const target = resolveCallee(node.callee);
+    const nodeId = makeId(filePath, l, "NewExpression");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "NewExpression"),
+      id: nodeId,
       intent: "call",
       name: target,
       target,
@@ -1154,14 +1232,15 @@ export const conditionalExpressionVisitor =
    */
 
   export const tsInterfaceDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "TSInterfaceDeclaration");
 
-    if (currentScope(stack) === "module") {
-      edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
-    }
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    // Push so interface members link to this interface
+    ctx.parentIdStack.push(nodeId);
 
     nodes.push({
       id: nodeId,
@@ -1180,14 +1259,13 @@ export const conditionalExpressionVisitor =
   };
 
 export const tsTypeAliasDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "TSTypeAliasDeclaration");
 
-    if (currentScope(stack) === "module") {
-      edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
-    }
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
 
     nodes.push({
       id: nodeId,
@@ -1206,14 +1284,15 @@ export const tsTypeAliasDeclarationVisitor =
   };
 
 export const tsEnumDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "TSEnumDeclaration");
 
-    if (currentScope(stack) === "module") {
-      edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
-    }
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    // Push so enum members link to this enum
+    ctx.parentIdStack.push(nodeId);
 
     nodes.push({
       id: nodeId,
@@ -1233,12 +1312,15 @@ export const tsEnumDeclarationVisitor =
   };
 
 export const tsEnumMemberVisitor =
-  ({ filePath, nodes, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const name = node.id?.name ?? node.name ?? node.computed?.name ?? "unknown";
+    const nodeId = makeId(filePath, l, "TSEnumMember");
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
     nodes.push({
-      id: makeId(filePath, l, "TSEnumMember"),
+      id: nodeId,
       intent: "definition",
       name,
       location: l,
@@ -1323,20 +1405,20 @@ export const throwStatementVisitor =
 };
 
 
-// Regular function declarations (non-generator)
+// Regular function declarations (including generators)
 export const functionDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
-    if (node.generator) return; // Skip generators (handled elsewhere)
     if (!node.id) return;
 
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "FunctionDeclaration");
 
-    // Emit contains edge: file Program → this definition (module-level only)
-    if (currentScope(stack) === "module") {
-      edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
-    }
+    // Emit contains edge: parent scope node → this function
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    // Push so body statements/calls link to this function
+    ctx.parentIdStack.push(nodeId);
 
     nodes.push({
       id: nodeId,
@@ -1349,7 +1431,7 @@ export const functionDeclarationVisitor =
         scope: currentScope(stack),
         visibility: "public",
         isAsync: node.async ?? false,
-        isGenerator: false,
+        isGenerator: node.generator ?? false,
         parameters: extractParams(node.params ?? []),
         returnType: serializeType(node.returnType?.typeAnnotation),
       },
@@ -1358,14 +1440,16 @@ export const functionDeclarationVisitor =
 
 // Class declarations
 export const classDeclarationVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "ClassDeclaration");
 
-    if (currentScope(stack) === "module") {
-      edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
-    }
+    // Link to parent (Program at module level, or enclosing function if nested)
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    // Push so class members link to this class (not to the file Program)
+    ctx.parentIdStack.push(nodeId);
 
     nodes.push({
       id: nodeId,
@@ -1387,14 +1471,17 @@ export const classDeclarationVisitor =
 
 // Class methods
 export const methodDefinitionVisitor =
-  ({ filePath, nodes, edges, loc, currentScope }: VisitorContext) =>
+  (ctx: VisitorContext) =>
   (node: any, stack: readonly ScopeKind[]) => {
+    const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
     const name = node.key?.name ?? node.key?.value ?? serializeExpr(node.key) ?? "unknown";
     const nodeId = makeId(filePath, l, "MethodDefinition");
 
-    // Emit contains edge: file Program → method (flat — enables expand-file-to-see-all-methods).
-    edges.push({ from: fileProgramId(filePath), to: nodeId, weight: 1 });
+    // Link to parent class (parentIdStack top), NOT to the file Program
+    edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    // Push so calls/statements in the method body link to this method
+    ctx.parentIdStack.push(nodeId);
 
     nodes.push({
       id: nodeId,
@@ -1406,7 +1493,7 @@ export const methodDefinitionVisitor =
         nodeType: "MethodDefinition",
         scope: currentScope(stack),
         kind: node.kind, // "constructor" | "method" | "get" | "set"
-        visibility: node.accessibility === "private" ? "private" : 
+        visibility: node.accessibility === "private" ? "private" :
                     node.accessibility === "protected" ? "protected" : "public",
         isStatic: node.static ?? false,
         isAsync: node.value?.async ?? false,
@@ -1724,4 +1811,51 @@ export const buildAdditionalVisitors = (ctx: VisitorContext) => ({
   // Keep class members
   PropertyDefinition: propertyDefinitionVisitor(ctx),
   StaticBlock: staticBlockVisitor(ctx),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXIT VISITORS
+// Called by walkScoped *after* all children of a scope-creating node have been
+// visited.  Their sole job is to pop the parentIdStack so subsequent siblings
+// link to the correct parent again.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns exit-visitor callbacks for every node type that pushes to
+ * parentIdStack in the enter visitors above.  The pop is guarded by an ID
+ * comparison so a skipped enter (e.g. anonymous FunctionDeclaration) never
+ * causes an accidental pop.
+ */
+export const buildAdditionalExitVisitors = (ctx: VisitorContext) => ({
+  FunctionDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
+    if (!node.id) return;
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "FunctionDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  GeneratorFunction: (node: any, _stack: readonly ScopeKind[]) => {
+    // generatorFunctionVisitor guards on node.generator && node.id
+    if (!node.generator || !node.id) return;
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "GeneratorFunction");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  ClassDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "ClassDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  MethodDefinition: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "MethodDefinition");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  TSInterfaceDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "TSInterfaceDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  TSEnumDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "TSEnumDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  TSModuleDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "TSModuleDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
 });

@@ -60,8 +60,11 @@ export class TaskProcessor implements ITaskProcessor {
             console.warn(`${task.type}:${task.subType} has no task processor registered!`);
             return false;
         }
+        console.log("[stractura:processor:enqueue:process]", "processor found")
 
         const output = await processor(task, this.ctx);
+
+        console.log("[stractura:processor:enqueue:process]", "processor output", output)
 
         if(!output) {
             return false;

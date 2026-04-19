@@ -5,6 +5,7 @@ import type { ExpansionPolicy, SemanticEdge, SemanticNode } from "../../contract
 import type { ImportEdgeStub } from "../Visitors.js";
 import { fileProgramId } from "../Visitors.js";
 import { parseFile, resolveImportStubs } from "./TSParser.js";
+import { getFilePathFromNodeId } from "../../uitlities/state.js";
 
 // ============================================================================
 // GraphState processors
@@ -68,8 +69,12 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
 
   const targetNode = ctx.graph.getNode(nodeId);
 
+  console.log("[stractura:processor:onExpandNode]", "target Node", targetNode)
+
   // External package imports are display-only — never explore node_modules.
   if (targetNode?.metadata?.isExternal) {
+      console.log("[stractura:processor:onExpandNode]", "Node is external", targetNode)
+
     ctx.webview?.postMessage({ command: "nodesAdded", nodes: [], edges: [], reason: "external" });
     return true;
   }
@@ -77,6 +82,8 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
   // ImportDeclaration with no cross-file edge yet → parse the target file on-demand
   // and wire ImportDeclaration → imported Program node.
   if (targetNode?.metadata?.nodeType === "ImportDeclaration") {
+  console.log("[stractura:processor:onExpandNode]", "Node type -> ImportDeclaration", )
+
     const hasProgramEdge = ctx.graph
       .getEdges(nodeId)
       .some(e => ctx.graph.getNode(e.to)?.metadata?.nodeType === "Program");
@@ -97,11 +104,14 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
               ctx.graph.addNodes(result.nodes);
               ctx.graph.addEdges(result.edges);
               ctx.graph.addEdges(resolveImportStubs(result.importStubs, ctx.graph.getAllNodes()));
+
+
             }
             const programId2 = fileProgramId(resolved);
             if (ctx.graph.getNode(programId2)) {
               ctx.graph.addEdge({ from: nodeId, to: programId2, weight: 4 });
             }
+        
             break;
           } catch { /* try next extension */ }
         }
@@ -111,19 +121,26 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
 
   // Program node with no outgoing edges → file hasn't been parsed yet; load it now.
   if (targetNode?.metadata?.nodeType === "Program") {
+      console.log("[stractura:processor:onExpandNode]", "Node type -> Program", )
+
     const hasEdges = ctx.graph.getEdges(nodeId).length > 0;
     if (!hasEdges) {
-      const nodeMatch = nodeId.match(/^(.+):1:0:Program$/);
-      if (nodeMatch) {
-        const filePath = nodeMatch[1].replace(/%3A/g, ":");
-        try {
-          const result = await parseFile(filePath);
-          for (const n of result.nodes) ctx.cache.set(n.id, n);
-          ctx.graph.addNodes(result.nodes);
-          ctx.graph.addEdges(result.edges);
-          ctx.graph.addEdges(resolveImportStubs(result.importStubs, ctx.graph.getAllNodes()));
-        } catch { /* skip unparseable */ }
-      }
+      
+      const filePath = getFilePathFromNodeId(nodeId);
+      console.log("[stractura:processor:onExpandNode]", "file path: ", filePath )
+
+      try {
+        const result = await parseFile(filePath);
+        for (const n of result.nodes) ctx.cache.set(n.id, n);
+        console.log("[stractura:processor:onExpandNode]", "parse file results: ", `nodes no. ${result.nodes.length}`, `edges no. ${result.edges.length}`, `stubs no. ${result.importStubs.length}`)
+
+        ctx.graph.addNodes(result.nodes);
+        ctx.graph.addEdges(result.edges);
+        ctx.graph.addEdges(resolveImportStubs(result.importStubs, ctx.graph.getAllNodes()));
+        // send nodesAdded event to webview to update graph
+        console.log("[stractura:processor:onExpandNode]", "Using bridge to update user view")
+        ctx.webview?.postMessage({ command: "nodesAdded", nodes: result.nodes, edges: result.edges, reason: "expand command" });
+      } catch { /* skip unparseable */ }
     }
   }
 

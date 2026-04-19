@@ -18,7 +18,10 @@ suite("Additional Visitors Tests", () => {
     filePath,
     nodes,
     loc: (span: any) => ({start: { line: 1, column: 0 }, end: { line: 1, column: 0 }}),
-    currentScope: (stack: readonly ScopeKind[]) => stack[stack.length - 1] || "module"
+    currentScope: (stack: readonly ScopeKind[]) => stack[stack.length - 1] || "module",
+    edges: [],
+    importStubs: [],
+    parentIdStack: [`${filePath.replace(/:/g, "%3A")}:1:0:Program`],
   });
 
   test("programVisitor - should capture program node", () => {

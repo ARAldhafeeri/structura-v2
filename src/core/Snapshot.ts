@@ -3,7 +3,7 @@ import type { ISnapshotNode, ISnapshotNodePointer, IStracturaSnapshotState } fro
 import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { GraphData } from "../graphGenerator.js";
+import type { GraphPanel } from "../graphPanel.js";
 
 /**
  * Presisted in .structura/snapshots snapshot of user interactions with graphs
@@ -30,7 +30,7 @@ export class SnapshotState implements IStracturaSnapshotState {
         this.snapshotDir = path.join(process.cwd(), '.structura', 'snapshots');
     }
 
-    async getSnapshot(key: string): Promise<GraphData> {
+    async getSnapshot(key: string): Promise<GraphPanel> {
         try {
         const filePath = this.get(key);
         const data = await fs.readFile(filePath as string);

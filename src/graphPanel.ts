@@ -88,6 +88,8 @@ export class GraphPanel {
             case 'undo':
             case 'redo':
               if (this.onEnqueue) {
+                console.log("[structura:backend:graphPanel]","task enqueued ", message.command, message)
+
                 this.onEnqueue(createTask(message.command as TaskSubType, message));
               }
               break;

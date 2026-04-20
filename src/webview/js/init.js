@@ -31,6 +31,7 @@ function seedGraph() {
   });
 
   syncEdges();
+  applyLegendFilter(); // hide unchecked-category nodes before layout so they don't affect positioning
 
   // Run layout instantly (animate:false) — nodes reach final positions synchronously.
   // onDone is passed so the callback is registered BEFORE layout.run() fires layoutstop.
@@ -71,6 +72,7 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 animateParticles();
 initCy();
+buildLegendUI();   // build checkbox legend before any nodes arrive
 animateGrid();
 
 // Small delay lets Cytoscape finish mounting before we add nodes.

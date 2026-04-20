@@ -1,4 +1,3 @@
-import type { SemanticNode } from "../contract/Graph.js";
 import type { ISnapshotNode, ISnapshotNodePointer, IStracturaSnapshotState } from "../contract/State/Snapshot.js";
 import fs from 'fs/promises';
 import path from 'path';

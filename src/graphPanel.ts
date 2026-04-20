@@ -11,6 +11,7 @@ const ACTION_TO_SUBTYPE: Record<string, TaskSubType> = {
   'expand-node-importers':  'expand-node-importers',
   'build-full-graph':       'build-full-graph',
   'collapse-node':          'collapse-node',
+  'expand-category':        'expand-category',
   'pin-node':          'pin-node',
   'hide-node':         'hide-node',
   'deselect-all-nodes':'deselect-all-nodes',
@@ -81,6 +82,7 @@ export class GraphPanel {
             case 'expand-node-importers':
             case 'build-full-graph':
             case 'collapse-node':
+            case 'expand-category':
             case 'select-node':
             case 'pin-node':
             case 'hide-node':

@@ -46,6 +46,24 @@ async function walkSourceFiles(
   return results;
 }
 
+/**
+ * Node types shown by default in the webview (legend categories that are
+ * checked on load).  Anything NOT in this set is stored in the graph but
+ * withheld from the webview until the user enables that legend category.
+ */
+const CORE_NODE_TYPES = new Set([
+  // Files
+  "Program",
+  // Classes & Types
+  "ClassDeclaration", "TSInterfaceDeclaration", "TSEnumDeclaration",
+  "TSTypeAliasDeclaration", "TSModuleDeclaration",
+  // Functions
+  "FunctionDeclaration", "MethodDefinition", "GeneratorFunction",
+  // Imports & Exports
+  "ImportDeclaration", "ExportNamedDeclaration", "ExportDefaultDeclaration",
+  "ExportAllDeclaration", "TSExportAssignment", "TSImportEqualsDeclaration",
+]);
+
 const DEFAULT_EXPANSION_POLICY: ExpansionPolicy = {
   order: ["import", "export", "definition", "call", "reference", "type"],
   maxDepth: 3,
@@ -137,9 +155,13 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
         ctx.graph.addNodes(result.nodes);
         ctx.graph.addEdges(result.edges);
         ctx.graph.addEdges(resolveImportStubs(result.importStubs, ctx.graph.getAllNodes()));
-        // send nodesAdded event to webview to update graph
+        // Only send core node types to the webview — detail categories (members,
+        // control-flow, calls, variables) are fetched on-demand via expand-category.
+        const coreNodes = result.nodes.filter(n => CORE_NODE_TYPES.has(n.metadata?.nodeType as string));
+        const coreIds = new Set(coreNodes.map(n => n.id));
+        const coreEdges = result.edges.filter(e => coreIds.has(e.from) || coreIds.has(e.to));
         console.log("[stractura:processor:onExpandNode]", "Using bridge to update user view")
-        ctx.webview?.postMessage({ command: "nodesAdded", nodes: result.nodes, edges: result.edges, reason: "expand command" });
+        ctx.webview?.postMessage({ command: "nodesAdded", nodes: coreNodes, edges: coreEdges, reason: "expand command" });
       } catch { /* skip unparseable */ }
     }
   }
@@ -149,12 +171,14 @@ export const onExpandNode: TaskProcessorHandler = async (task, ctx) => {
   const expanded = ctx.graph.expandNode((n) => n.id === nodeId, policy);
   for (const node of expanded) ctx.cache.set(node.id, node);
 
-  const relevantIds = new Set<string>([nodeId, ...expanded.map(n => n.id)]);
+  // Filter to core types only — detail nodes are delivered via expand-category.
+  const coreExpanded = expanded.filter(n => CORE_NODE_TYPES.has(n.metadata?.nodeType as string));
+  const coreExpandedIds = new Set<string>([nodeId, ...coreExpanded.map(n => n.id)]);
   const edges = ctx.graph.getEdges().filter(
-    (e) => relevantIds.has(e.from) && relevantIds.has(e.to),
+    (e) => coreExpandedIds.has(e.from) && coreExpandedIds.has(e.to),
   );
 
-  ctx.webview?.postMessage({ command: "nodesAdded", nodes: expanded, edges });
+  ctx.webview?.postMessage({ command: "nodesAdded", nodes: coreExpanded, edges });
   return true;
 };
 
@@ -337,6 +361,55 @@ export const onBuildFullGraph: TaskProcessorHandler = async (task, ctx) => {
     edges: fileEdges,
     totalFiles: programNodes.length,
   });
+  return true;
+};
+
+/**
+ * Expand a legend category on-demand.
+ *
+ * The frontend sends the set of nodeTypes it wants to reveal and the IDs of
+ * nodes that are currently visible in cy.  The backend finds all graph nodes
+ * whose type is in that set AND whose direct parent (via a weight=1 contains
+ * edge) is already visible, then delivers them via `nodesAdded`.
+ *
+ * Only nodes already present in ctx.graph are searched — no extra parsing is
+ * triggered here; files are parsed lazily when their Program node is expanded.
+ */
+export const onExpandCategory: TaskProcessorHandler = async (task, ctx) => {
+  if (!ctx) return false;
+  const nodeTypes: string[] = task.data?.nodeTypes ?? [];
+  const visibleNodeIds: Set<string> = new Set(task.data?.visibleNodeIds ?? []);
+
+  if (!nodeTypes.length) return false;
+  const typeSet = new Set(nodeTypes);
+
+  // Collect candidate nodes of the requested types.
+  const candidates = ctx.graph.getAllNodes().filter(
+    n => n.metadata?.nodeType && typeSet.has(n.metadata.nodeType as string),
+  );
+
+  // Only include a node if at least one of its contains-parents (weight=1
+  // incoming edge) is currently visible in the webview.
+  const nodesToSend: SemanticNode[] = [];
+  for (const node of candidates) {
+    const incoming = ctx.graph.getEdges(undefined, node.id);
+    const hasVisibleParent = incoming.some(e => e.weight === 1 && visibleNodeIds.has(e.from));
+    if (hasVisibleParent) nodesToSend.push(node);
+  }
+
+  if (!nodesToSend.length) {
+    ctx.webview?.postMessage({ command: 'nodesAdded', nodes: [], edges: [], reason: 'no-nodes-in-category' });
+    return true;
+  }
+
+  // Send all edges that connect visible nodes to the new nodes, or among new nodes.
+  const newIds = new Set(nodesToSend.map(n => n.id));
+  const allRelevant = new Set([...visibleNodeIds, ...newIds]);
+  const edges = ctx.graph.getEdges().filter(
+    e => allRelevant.has(e.from) && newIds.has(e.to),
+  );
+
+  ctx.webview?.postMessage({ command: 'nodesAdded', nodes: nodesToSend, edges });
   return true;
 };
 

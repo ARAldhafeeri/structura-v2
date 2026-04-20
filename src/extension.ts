@@ -7,7 +7,7 @@ import { TaskProcessor, TaskProcessorRegistry } from './core/TaskProcessor.js';
 import { buildContext } from './core/buildContext.js';
 import { WebviewPanelController } from './core/WebviewController.js';
 import {
-  onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onExpandNodeImporters, onBuildFullGraph, onCollapseNode,
+  onInitializeGraph, onBuildInitialGraph, onParseFile, onExpandNode, onExpandNodeImporters, onBuildFullGraph, onCollapseNode, onExpandCategory,
   onFileChange, onBatchProcessFiles, onNodeClick, onNodeDoubleClick, onNodeHover,
   onActiveFileChanged, onToggleGraph, onOpenFileFromNode, onExpandSelectedNode,
   onDeselectAllNodes, onViewportChange, onNodeDragDrop, onSelectNode, onPinNode, onHideNode,
@@ -49,6 +49,7 @@ function buildProcessor(): TaskProcessor {
   reg('graph-construction',   'expand-node-importers',  onExpandNodeImporters);
   reg('graph-construction',   'build-full-graph',       onBuildFullGraph);
   reg('graph-construction',   'collapse-node',          onCollapseNode);
+  reg('graph-construction',   'expand-category',        onExpandCategory);
   reg('graph-construction',   'file-change',            onFileChange);
   reg('graph-construction',   'batch-process-files',    onBatchProcessFiles);
   reg('user-interaction',     'node-click',             onNodeClick);

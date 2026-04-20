@@ -35,7 +35,8 @@ export type GraphConstructionSubType =
   | "collapse-node"
   | "file-change"
   | "batch-process-files"
-  | "build-full-graph";
+  | "build-full-graph"
+  | "expand-category";
 
 export type UserInteractionSubType =
   | "node-click"
@@ -112,7 +113,8 @@ export const GRAPH_CONSTRUCTION_SUBTYPES = {
   COLLAPSE_NODE: "collapse-node",
   FILE_CHANGE: "file-change",
   BATCH_PROCESS_FILES: "batch-process-files",
-  BUILD_FULL_GRAPH: "build-full-graph"
+  BUILD_FULL_GRAPH: "build-full-graph",
+  EXPAND_CATEGORY: "expand-category",
 } as const;
 
 export const USER_INTERACTION_SUBTYPES = {
@@ -183,6 +185,7 @@ export const SUBTYPE_TO_CATEGORY: Record<TaskSubType, TaskCategory> = {
   "file-change": "graph-construction",
   "batch-process-files": "graph-construction",
   "build-full-graph": "graph-construction",
+  "expand-category": "graph-construction",
 
   // User Interaction
   "node-click": "user-interaction",
@@ -247,6 +250,7 @@ export const SUBTYPE_DEFAULT_PRIORITIES: Record<TaskSubType, number> = {
   "file-change": 90,
   "batch-process-files": 70,
   "build-full-graph": 60,
+  "expand-category": 80,
 
   // User Interaction (Immediate feedback)
   "node-click": 99,

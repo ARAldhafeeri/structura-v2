@@ -1042,6 +1042,7 @@ export const ifStatementVisitor =
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "IfStatement");
     edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
       id: nodeId,
       intent: "definition",
@@ -1065,8 +1066,10 @@ export const forStatementVisitor =
   (node: any, stack: readonly ScopeKind[]) => {
     const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
-    const nodeId = makeId(filePath, l, "ForStatement");
+    // node.type may be "ForStatement", "ForInStatement", or "ForOfStatement"
+    const nodeId = makeId(filePath, l, node.type ?? "ForStatement");
     edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
       id: nodeId,
       intent: "definition",
@@ -1074,7 +1077,7 @@ export const forStatementVisitor =
       location: l,
       weight: WEIGHTS.for,
       metadata: {
-        nodeType: "ForStatement",
+        nodeType: node.type ?? "ForStatement",
         scope: currentScope(stack),
         isAwait: node.await ?? false, // for await...of
       },
@@ -1091,16 +1094,18 @@ export const whileStatementVisitor =
   (node: any, stack: readonly ScopeKind[]) => {
     const { filePath, nodes, edges, loc, currentScope } = ctx;
     const l = loc(node.span);
-    const nodeId = makeId(filePath, l, "WhileStatement");
+    // node.type is "WhileStatement" or "DoWhileStatement" — preserve both
+    const nodeId = makeId(filePath, l, node.type ?? "WhileStatement");
     edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
       id: nodeId,
       intent: "definition",
-      name: "while",
+      name: node.type === "DoWhileStatement" ? "do…while" : "while",
       location: l,
       weight: WEIGHTS.while,
       metadata: {
-        nodeType: "WhileStatement",
+        nodeType: node.type ?? "WhileStatement",
         scope: currentScope(stack),
       },
     });
@@ -1118,6 +1123,7 @@ export const switchStatementVisitor =
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "SwitchStatement");
     edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
       id: nodeId,
       intent: "definition",
@@ -1143,6 +1149,7 @@ export const tryStatementVisitor =
     const l = loc(node.span);
     const nodeId = makeId(filePath, l, "TryStatement");
     edges.push({ from: parentId(ctx), to: nodeId, weight: 1 });
+    ctx.parentIdStack.push(nodeId);
     nodes.push({
       id: nodeId,
       intent: "definition",
@@ -1745,9 +1752,11 @@ export const buildAdditionalVisitors = (ctx: VisitorContext) => ({
   ClassDeclaration: classDeclarationVisitor(ctx),
   MethodDefinition: methodDefinitionVisitor(ctx),
 
-  // Control Flow 
+  // Control Flow
   IfStatement: ifStatementVisitor(ctx),
   ForStatement: forStatementVisitor(ctx),
+  ForInStatement: forStatementVisitor(ctx),
+  ForOfStatement: forStatementVisitor(ctx),
   WhileStatement: whileStatementVisitor(ctx),
   DoWhileStatement: whileStatementVisitor(ctx),
   SwitchStatement: switchStatementVisitor(ctx),
@@ -1856,6 +1865,40 @@ export const buildAdditionalExitVisitors = (ctx: VisitorContext) => ({
   },
   TSModuleDeclaration: (node: any, _stack: readonly ScopeKind[]) => {
     const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "TSModuleDeclaration");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  // Control flow — each pops itself so children of sibling statements link
+  // to the correct parent, not to a previous branch's control-flow node.
+  IfStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "IfStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  ForStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "ForStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  ForInStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "ForInStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  ForOfStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "ForOfStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  WhileStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "WhileStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  DoWhileStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "DoWhileStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  SwitchStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "SwitchStatement");
+    if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
+  },
+  TryStatement: (node: any, _stack: readonly ScopeKind[]) => {
+    const nodeId = makeId(ctx.filePath, ctx.loc(node.span), "TryStatement");
     if (ctx.parentIdStack[ctx.parentIdStack.length - 1] === nodeId) ctx.parentIdStack.pop();
   },
 });

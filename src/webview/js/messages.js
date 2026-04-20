@@ -58,6 +58,9 @@ window.addEventListener('message', event => {
         // Add all new edges
         newEdges.forEach(e => addEdgeToGraph(e));
 
+        // Apply legend filter before layout so hidden nodes don't affect positioning
+        applyLegendFilter();
+
         // Create a subgraph containing only existing nodes + new nodes
         // This prevents the layout from moving existing nodes too aggressively
         const layout = state.cy.layout({
@@ -154,18 +157,16 @@ window.addEventListener('message', event => {
             toast(`+${toAnimate.length} nodes`);
             state.currentDepth = Math.min(state.currentDepth + 1, 9);
             updateDepthIndicator(state.currentDepth);
-            
-            // Smooth fit to include new nodes without jarring transition
-            if (toAnimate.length > 0) {
+
+            // Anti-overlap settle pass: gently push any crowded nodes apart,
+            // then fit the viewport once positions have stabilised.
+            runAntiOverlap(() => {
               state.cy.animate({
-                fit: {
-                  eles: state.cy.elements(),
-                  padding: 60
-                },
-                duration: 400,
-                easing: 'ease-in-out-cubic'
+                fit: { eles: state.cy.elements(), padding: 60 },
+                duration: 350,
+                easing: 'ease-in-out-cubic',
               });
-            }
+            });
           }, batchDelay);
         });
 
@@ -246,6 +247,7 @@ window.addEventListener('message', event => {
         state.cy.add(cyData);
       });
       newEdges.forEach(e => addEdgeToGraph(e));
+      applyLegendFilter(); // hide unchecked categories before layout
 
       // Run a single layout pass then stagger-reveal all new nodes.
       runLayout(true, null, false, () => {

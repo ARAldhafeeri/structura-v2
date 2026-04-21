@@ -28,6 +28,8 @@ Note: if extension is not working please click `alt+shift+p` then from options s
 
 Understanding complex codebases shouldn't require mental gymnastics. Structura eliminates the cognitive overhead of navigating large projects by transforming your code into an interactive graph that reveals relationships, dependencies, and architecture at a glance.
 
+<a href=" https://marketplace.visualstudio.com/items?itemName=AhmedRakan.structura-v2"> Install from VS Code Market Place </a>
+
 ### The Problem
 
 - **Mental overhead**: Developers spend hours tracing dependencies manually

@@ -27,8 +27,9 @@ Note: if extension is not working please click `alt+shift+p` then from options s
 ## Why Structura?
 
 Understanding complex codebases shouldn't require mental gymnastics. Structura eliminates the cognitive overhead of navigating large projects by transforming your code into an interactive graph that reveals relationships, dependencies, and architecture at a glance.
-
-<a href=" https://marketplace.visualstudio.com/items?itemName=AhmedRakan.structura-v2"> Install from VS Code Market Place </a>
+<p>
+  <a href="https://marketplace.visualstudio.com/items?itemName=AhmedRakan.structura-v2">Install from VS Code Market Place</a>
+</p>
 
 ### The Problem
 
